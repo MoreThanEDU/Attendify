@@ -169,4 +169,34 @@ router.get("/enroll-lecture", (req, res) => {
     }
 });
 
+router.post("/lec_enroll", (req, res) => {
+    const l_code = req.body;
+    const a_code = req.session.a_code
+    console.log(l_code);
+    db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+        console.log(row);
+        if (err) {
+            console.error("에러 발생:", err);
+        } else if (row) {
+            db.run("UPDATE lecture SET s_a_code = ? WHERE l_code = ?", [a_code, l_code], function (err) {
+                if (err) {
+                    console.error("에러 발생:", err);
+                } else {
+                    console.log("수강 신청 성공!");
+                }
+            });
+            return res.send(
+                "<script>location.href='/main';</script>",
+            );
+        } else {
+            console.log("수강 신청 실패!");
+            return res.send(
+                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+            );
+        }
+    });
+});
+
+//test
+
 module.exports = router;

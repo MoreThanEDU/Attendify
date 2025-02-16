@@ -114,12 +114,12 @@ app.get("/main", (req, res) => {
                         .send("사용자 정보를 찾을 수 없습니다.");
                 }
 
-                const aCode = row.a_code;
+                const a_code = row.a_code;
 
                 // a_code에 해당하는 모든 강좌 이름 조회
                 db.all(
                     `SELECT lec_name, l_code FROM lecture WHERE s_a_code = ?`,
-                    [aCode],
+                    [a_code],
                     (err, rows) => {
                         if (err) {
                             return console.error(err.message);
@@ -129,9 +129,10 @@ app.get("/main", (req, res) => {
                         const courseItems = rows
                             .map(
                                 (row) =>
-                                    `<div class="course-item" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`,
+                                    `<div class="course-item">${row.lec_name}</div>`,
                             )
                             .join("");
+                        console.log(courseItems);
                         const content = `
                         <div class="container">
                             <input class="btn" onclick="location.href='/enroll-lecture'" value="수강 신청"></button>
