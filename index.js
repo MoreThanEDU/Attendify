@@ -133,18 +133,23 @@ app.get("/main", (req, res) => {
                             )
                             .join("");
                         const content = `
-                        <div class="container">
-                            <input class="btn" onclick="location.href='/enroll-lecture'" value="수강 신청"></button>
-                            <div class="title">수강중인 강좌</div>
-                            <div class="course-list">
-                                ${courseItems}
+                        <div class="container" style="display: flex; padding: 20px; gap: 20px">
+                            <div class="left-panel">
+                                <div class="title">수강중인 강좌</div>
+                                <div class="course-list">${courseItems}</div>
+                            </div>
+                            <div class="right-panel">
+                                <div class="buttons">
+                                    <button>출석체크하기</button>
+                                    <button type = "button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
+                                </div>
                             </div>
                         </div>`;
 
                         // HTML 템플릿에 내용 추가 후 응답
                         const shtml = template.HTML(
                             req.session.username,
-                            content,
+                            content
                         );
                         res.send(shtml);
                     },

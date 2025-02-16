@@ -55,7 +55,9 @@ router.post("/lec_create", (req, res) => {
     let l_code = generateRandomString(6);
 
     db.get("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
-        if (row) {
+        if (err) {
+            console.error("에러 발생:", err)
+        } else if (row) {
             l_code = generateRandomString(6);
         }
 
@@ -132,7 +134,7 @@ router.post("/lec_create", (req, res) => {
                         } else {
                             console.log("데이터 삽입 성공!");
                             return res.send(
-                                "<script>alert('강좌 생성 성공');location.href='/main'</script>",
+                                "<script>alert('강좌 생성 성공');location.href='/main';</script>",
                             );
                         }
                     },
@@ -145,18 +147,12 @@ router.post("/lec_create", (req, res) => {
 router.get("/enroll-lecture", (req, res) => {
     if (req.session.t_s === "s") {
         var html = template.HTML(
-            "lecture",
+            "enroll-lecture",
             `
         <h2>수강 신청</h2>
-        <form action="/lec_create" method="post">
-            <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
-            <label><b>출석체크 횟수</b></label>
-            <div class="radio">
-                <label><input type="radio" name="at_cnt" value="1" required> 1회</label>
-                <label><input type="radio" name="at_cnt" value="2" required> 2회</label>
-            </div>
-            <br>
-            <input class="btn" type="submit" value="강좌 생성하기"></center>
+        <form action="/lec_enroll" method="post">
+            <input class="login" type="text" name="l_code" placeholder="강좌 코드">
+            <input class="btn" type="submit" value="수강 신청하기"></center>
         </form>
         `,
             "",
@@ -167,6 +163,34 @@ router.get("/enroll-lecture", (req, res) => {
             '<script>alert("잘못된 접근입니다.");history.back();</script>',
         );
     }
+});
+
+router.post("/lec_enroll", (req, res) => {
+    const l_code = req.body;
+    const a_code = req.session.a_code
+    console.log(l_code);
+    db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+        console.log(row);
+        if (err) {
+            console.error("에러 발생:", err);
+        } else if (row) {
+            db.run("UPDATE lecture SET s_a_code = ? WHERE l_code = ?", [a_code, l_code], function (err) {
+                if (err) {
+                    console.error("에러 발생:", err);
+                } else {
+                    console.log("수강 신청 성공!");
+                }
+            });
+            return res.send(
+                "<script>location.href='/main';</script>",
+            );
+        } else {
+            console.log("수강 신청 실패!");
+            return res.send(
+                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+            );
+        }
+    });
 });
 
 module.exports = router;
