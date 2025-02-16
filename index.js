@@ -159,9 +159,144 @@ app.get("/lecture/:l_code", (req, res) => {
         return res.redirect("/login");
     }
     if (req.session.t_s === "s") {
-        return '<script>alert("잘못된 접근입니다.");history.back();</script>';
+        return res.send('<script>alert("잘못된 접근입니다.");history.back();</script>');
     }
     const lec_code = req.params.l_code;
+    const db = new sqlite3.Database("./DB.db");
+
+    // 강좌 이름 조회
+    db.get(
+        `SELECT lec_name, s_a_code, t_a_code FROM lecture WHERE l_code = ?`,
+        [lec_code],
+        (err, lecRow) => {
+            if (err) {
+                console.error(err.message);
+                return res.send('<script>alert("서버 오류가 발생했습니다.");history.back();</script>');
+            }
+            if (!lecRow) {
+                return res.send('<script>alert("강좌를 찾을 수 없습니다.");history.back();</script>');
+            }
+
+            const lec_name = lecRow.lec_name;
+            const s_a_codes = lecRow.s_a_code
+                .split("/")
+                .filter((code) => code.trim() !== ""); // 빈 값 제거
+
+            const t_a_code = lecRow.t_a_code;
+            const userId = req.session.username;
+            db.get(`SELECT a_code FROM Users WHERE id = ?`, [userId], (err, userRow) => {
+                if (err) {
+                    console.error("DB 조회 오류:", err);
+                    return res.send('<script>alert("서버 오류입니다.");history.back();</script>');
+                }
+                if (!userRow) {
+                    return res.send('<script>alert("강좌를 찾을 수 없습니다.");history.back();</script>');
+                }
+        
+                const userACode = userRow.a_code;
+        
+                // 강의 정보 조회 (현재 사용자가 강사인지 확인)
+                db.all(`SELECT lec_name, l_code FROM lecture WHERE t_a_code = ?`, [userACode], (err, lectureRows) => {
+                    if (err) {
+                        console.error("DB 조회 오류:", err);
+                        return res.send('<script>alert("서버 오류가 발생했습니다.");history.back();</script>');
+                    }
+        
+                    if (lectureRows.length === 0) {
+                        return res.send('<script>alert("잘못된 접근입니다.");history.back();</script>');
+                    }
+                });
+            });
+
+            // 학생 이름 조회
+            const placeholders = s_a_codes.map(() => "?").join(", ");
+            db.all(
+                `SELECT name, a_code FROM Users WHERE a_code IN (${placeholders})`,
+                s_a_codes,
+                (err, studentRows) => {
+                    if (err) {
+                        console.error(err.message);
+                        return res.status(500).send("서버 오류가 발생했습니다.");
+                    }
+
+                    // 회차 수 조회 (테이블의 행 개수)
+                    db.all(
+                        `SELECT * FROM "${lec_code}"`,
+                        (err, sessionRows) => {
+                            if (err) {
+                                console.error(err.message);
+                                return res.status(500).send("서버 오류가 발생했습니다.");
+                            }
+
+                            const sessionCount = sessionRows.length;
+
+                            // 회차 옵션 생성
+                            const sessionOptions = Array.from(
+                                { length: sessionCount },
+                                (_, i) => {
+                                    const sessionNumber = sessionCount - i;
+                                    if (sessionNumber == 1) {
+                                        return `<option value="${sessionNumber}" selected>${sessionNumber}회차 수업</option>`;
+                                    }
+                                    else {
+                                        return `<option value="${sessionNumber}">${sessionNumber}회차 수업</option>`;
+                                    }
+                                },
+                            ).join("");
+
+                            // HTML 생성 (iframe 포함)
+                            const thtml = ltemplate.HTML(
+                                req.session.username,
+                                `
+                                <div class="container">
+                                    <div class="left-panel">
+                                        <div class="course-title">
+                                            <h2>${lec_name}</h2>
+                                            <select class="dropdown" id="sessionDropdown">
+                                                ${sessionOptions}
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- 출석 리스트를 표시할 iframe -->
+                                        <iframe id="attendanceFrame" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
+                                    </div>
+                                    
+                                    <div class="right-panel">
+                                        <div class="buttons">
+                                            <button onclick="/newsession/${lec_code}">새 회차 만들기</button>
+                                            <button>출석 통계 확인</button>
+                                            <button>출석체크 중단</button>
+                                            <button>수업 삭제하기</button>
+                                        </div>
+                                        <center><div class="qr-code">
+                                            <h2>출석체크가 시작되면 QR코드가 나타납니다.</h2>
+                                        </div></center>
+                                    </div>
+                                </div>
+                                <script>
+                                    const iframe = document.getElementById('attendanceFrame');
+                                    iframe.src = "/attendancelist/${lec_code}/1";
+                                    // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
+                                    document.getElementById('sessionDropdown').addEventListener('change', function() {
+                                        const selectedSession = this.value;
+                                        const iframe = document.getElementById('attendanceFrame');
+                                        iframe.src = "/attendancelist/${lec_code}/" + selectedSession;  // 선택된 회차에 맞는 URL로 변경
+                                    });
+                                </script>
+                                `,
+                            );
+                            res.send(thtml);
+                        },
+                    );
+                },
+            );
+        },
+    );
+});
+
+app.get("/attendancelist/:l_code/:session", (req, res) => {
+    const lec_code = req.params.l_code;
+    const sessionNumber = req.params.session;
     const db = new sqlite3.Database("./DB.db");
 
     // 강좌 이름 조회
@@ -180,7 +315,7 @@ app.get("/lecture/:l_code", (req, res) => {
             const lec_name = lecRow.lec_name;
             const s_a_codes = lecRow.s_a_code
                 .split("/")
-                .filter((code) => code.trim() !== ""); // 빈 값 제거
+                .filter((code) => code.trim() !== "");
 
             if (s_a_codes.length === 0) {
                 return res.status(404).send("등록된 학생이 없습니다.");
@@ -194,137 +329,305 @@ app.get("/lecture/:l_code", (req, res) => {
                 (err, studentRows) => {
                     if (err) {
                         console.error(err.message);
-                        return res
-                            .status(500)
-                            .send("서버 오류가 발생했습니다.");
+                        return res.status(500).send("서버 오류가 발생했습니다.");
                     }
 
-                    // 회차 수 조회 (테이블의 행 개수)
-                    db.all(
-                        `SELECT * FROM "${lec_code}"`,
-                        (err, sessionRows) => {
+                    // 회차 데이터 조회
+                    db.get(
+                        `SELECT * FROM "${lec_code}" WHERE session = ?`,
+                        [sessionNumber],
+                        (err, sessionData) => {
                             if (err) {
                                 console.error(err.message);
-                                return res
-                                    .status(500)
-                                    .send("서버 오류가 발생했습니다.");
+                                return res.status(500).send("서버 오류가 발생했습니다.");
                             }
 
-                            const sessionCount = sessionRows.length;
+                            // 출석 상태 처리
+                            const studentItems = studentRows
+                                .map((student) => {
+                                    let circle1 = ""; // 첫 번째 출석 상태
+                                    let circle2 = ""; // 두 번째 출석 상태
+                                    let present = ""; // 출석 상태 텍스트
 
-                            // 1회차 데이터 조회 (session = 1)
-                            db.get(
-                                `SELECT * FROM "${lec_code}" WHERE session = 1`,
-                                (err, sessionData) => {
-                                    if (err) {
-                                        console.error(err.message);
-                                        return res
-                                            .status(500)
-                                            .send("서버 오류가 발생했습니다.");
+                                    // 첫 번째 차시 출석 상태
+                                    if (sessionData.o_1.includes(student.a_code)) {
+                                        circle1 = "O";
+                                    } else if (sessionData.x_1.includes(student.a_code)) {
+                                        circle1 = "X";
                                     }
 
-                                    // 학생 출석 상태 생성
-                                    const studentItems = studentRows
-                                        .map((student) => {
-                                            let circle1 = ""; // 첫 번째 출석 상태
-                                            let circle2 = ""; // 두 번째 출석 상태
+                                    // 두 번째 차시 출석 상태
+                                    if (sessionData.o_2.includes(student.a_code)) {
+                                        circle2 = "O";
+                                    } else if (sessionData.x_2.includes(student.a_code)) {
+                                        circle2 = "X";
+                                    }
 
-                                            if (
-                                                sessionData.o_1.includes(
-                                                    student.a_code,
-                                                )
-                                            ) {
-                                                circle1 = "○";
-                                            } else if (
-                                                sessionData.x_1.includes(
-                                                    student.a_code,
-                                                )
-                                            ) {
-                                                circle1 = "×";
-                                            }
+                                    // 출석 상태 결정
+                                    if (circle1 === "O" && circle2 === "O") {
+                                        present = "출석";
+                                    } else if (circle1 === "X" && circle2 === "O") {
+                                        present = "지각";
+                                    } else if (circle1 === "O" && circle2 === "X") {
+                                        present = "조퇴";
+                                    } else if (circle1 === "X" && circle2 === "X") {
+                                        present = "결석";
+                                    }
 
-                                            if (
-                                                sessionData.o_2.includes(
-                                                    student.a_code,
-                                                )
-                                            ) {
-                                                circle2 = "○";
-                                            } else if (
-                                                sessionData.x_2.includes(
-                                                    student.a_code,
-                                                )
-                                            ) {
-                                                circle2 = "×";
-                                            }
-
-                                            return `
-                        <div class="student-item">
+                                    return `
+                        <div class="student-item" data-a-code="${student.a_code}">
                             <span>${student.name}</span>
                             <div class="status">
-                                <div class="circle">${circle1}</div>
-                                <div class="circle">${circle2}</div>
-                                <span class="present">출석</span>
+                                <img class="circle" src="/static/img/${circle1}a.png"></img>
+                                <img class="circle" src="/static/img/${circle2}a.png"></img>
+                                <span class="present" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code};'">${present}</span>
                             </div>
                         </div>`;
-                                        })
-                                        .join("");
+                                })
+                                .join("");
 
-                                    // 회차 옵션 생성
-                                    const sessionOptions = Array.from(
-                                        { length: sessionCount },
-                                        (_, i) => {
-                                            const sessionNumber =
-                                                sessionCount - i;
-                                            return `<option value="${sessionNumber}">${sessionNumber}회차 수업</option>`;
-                                        },
-                                    ).join("");
+                            // HTML 생성
+                            const thtml = `
+                                <style>
+                                    body {
+                                        font-family: Arial, sans-serif;
+                                        margin: 0;
+                                        padding: 0;
+                                        background-color: #f9f9f9;
+                                        overflow-x: hidden;
+                                    }
+                            
 
-                                    // HTML 생성
-                                    const thtml = ltemplate.HTML(
-                                        req.session.username,
-                                        `
-                        <div class="container">
-                            <div class="left-panel">
-                                <div class="course-title">
-                                    ${lec_name}
-                                    <select class="dropdown">
-                                        ${sessionOptions}
-                                    </select>
-                                </div>
-                                <div class="attendance-list">
-                                    <div class="attendance-header">
-                                        <span>이름</span>
-                                        <span>1차</span>
-                                        <span>2차</span>
-                                        <span>상태</span>
+                                    .header {
+                                        background: linear-gradient(to right, #10A99A, #AED56F);
+                                        padding: 15px 20px;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: space-between;
+                                    }
+
+                                    .header .logo {
+                                        font-size: 24px;
+                                        font-weight: bold;
+                                        color: white;
+                                    }
+
+                                    .header .admin {
+                                        display: flex;
+                                        align-items: center;
+                                        color: white;
+                                        font-weight: bold;
+                                    }
+
+                                    .header .admin .circle {
+                                        width: 20px;
+                                        height: 20px;
+                                        background-color: red;
+                                        border-radius: 50%;
+                                        margin-right: 10px;
+                                    }
+
+                                    .container {
+                                        display: flex;
+                                        padding: 20px;
+                                        gap: 20px;
+                                    }
+
+                                    .left-panel {
+                                        flex: 1;
+                                        width: 40%;
+                                    }
+
+                                    .course-title {
+                                        font-size: 22px;
+                                        font-weight: bold;
+                                    }
+
+                                    .dropdown {
+                                        padding: 5px 10px;
+                                        font-size: 16px;
+                                        margin-left: 10px;
+                                        border-radius: 5px;
+                                        border: 1px solid #ccc;
+                                    }
+
+                                    .attendance-list {
+                                        margin-top: 15px;
+                                    }
+
+                                    .attendance-header {
+                                        font-weight: bold;
+                                        display: flex;
+                                        justify-content: space-between;
+                                        margin-bottom: 10px;
+                                    }
+
+                                    .student-item {
+                                        background: linear-gradient(to right, #10A99A, #AED56F);
+                                        padding: 10px;
+                                        border-radius: 8px;
+                                        color: white;
+                                        font-weight: bold;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: space-between;
+                                        margin-bottom: 5px;
+                                    }
+
+                                    .status {
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 10px;
+                                    }
+
+                                    .circle {
+                                        width: 20px;
+                                        height: 20px;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                        font-size: 50px;
+                                        font-weight: bold;
+                                        margin-right: 20px;
+                                    }
+
+                                    .tablestatus span {
+                                        margin-right: 16px;
+                                    }
+                                    .right-panel {
+                                        text-align: right;
+                                        width: 60%;
+                                    }
+
+                                    .qr-code {
+                                        width: 200px;
+                                        height: 200px;
+                                        background: #fff;
+                                        margin-top: 20px;
+                                    }
+
+                                    .buttons {
+                                        margin-top: 10px;
+                                    }
+
+                                    .buttons button {
+                                        padding: 10px;
+                                        font-size: 14px;
+                                        border: none;
+                                        background: #ccc;
+                                        margin: 5px;
+                                        border-radius: 5px;
+                                        cursor: pointer;
+                                    }
+
+                                    .buttons button:hover {
+                                        background: #bbb;
+                                    }
+                                </style>
+                                <div class="container" style="width: 100%; padding: 10px;">
+                                    <div class="attendance-list" id="attendanceList" style="width: 95%;">
+                                        <div class="attendance-header">
+                                            <span>이름</span>
+                                            <div>
+                                                <span style="margin-right: 20px;">1차</span>
+                                                <span style="margin-right: 20px;">2차</span>
+                                                <span style="margin-right: 10px;">상태</span>
+                                            </div>
+                                        </div>
+                                        ${studentItems}
                                     </div>
-                                    ${studentItems}
                                 </div>
-                            </div>
-
-                            <div class="right-panel">
-                                <div class="buttons">
-                                    <button>출석 통계 확인</button>
-                                    <button>출석체크 중단</button>
-                                    <button>수업 삭제하기</button>
-                                </div>
-                                <div class="qr-code">
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6f/EAN13_Barcode.svg" alt="QR 코드" width="200">
-                                </div>
-                            </div>
-                        </div>
-                        `,
-                                    );
-                                    res.send(thtml);
-                                },
-                            );
-                        },
+                                <script>setInterval(function() { location.reload(); }, 1000);</script>
+                            `;
+                            res.send(thtml);
+                        }
                     );
-                },
+                }
             );
-        },
+        }
     );
 });
+
+
+app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
+    const lec_code = req.params.lec_code;
+    const session_code = req.params.session;
+    const a_code = req.params.a_code;
+    const db = new sqlite3.Database("./DB.db");
+
+    // 강의의 출석 정보 가져오기
+    db.get(
+        `SELECT o_1, x_1, o_2, x_2 FROM "${lec_code}" WHERE session = ?`,
+        [session_code],
+        (err, sessionData) => {
+            if (err) {
+                console.error("쿼리 실행 오류: ", err.message);
+                return res.status(500).send("서버 오류가 발생했습니다.");
+            }
+
+            if (!sessionData) {
+                console.log("해당 session의 데이터가 없습니다.");
+                return res.status(404).send("해당 session의 데이터가 없습니다.");
+            }
+
+            // 각 출석 상태를 '/'로 나누어 배열로 저장
+            let o1Array = sessionData.o_1.split("/").filter(item => item.trim() !== "");
+            let x1Array = sessionData.x_1.split("/").filter(item => item.trim() !== "");
+            let o2Array = sessionData.o_2.split("/").filter(item => item.trim() !== "");
+            let x2Array = sessionData.x_2.split("/").filter(item => item.trim() !== "");
+
+            if (o1Array.includes(a_code) && o2Array.includes(a_code)) {
+                o1Array = o1Array.filter(item => item !== a_code); // o1Array에서 a_code를 제거
+                x1Array.push(a_code); // x1Array에 a_code 추가
+            } else if (x1Array.includes(a_code) && o2Array.includes(a_code)) {
+                x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
+                o1Array.push(a_code); // o1Array에 a_code 추가
+                o2Array = o2Array.filter(item => item !== a_code); // o2Array에서 a_code를 제거
+                x2Array.push(a_code); // x2Array에 a_code 추가
+            } else if (o1Array.includes(a_code) && x2Array.includes(a_code)) {
+                o1Array = o1Array.filter(item => item !== a_code); // o1Array에서 a_code를 제거
+                x1Array.push(a_code); // x1Array에 a_code 추가
+            } else if (x1Array.includes(a_code) && x2Array.includes(a_code)) {
+                x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
+                o1Array.push(a_code); // o1Array에 a_code 추가
+                x2Array = x2Array.filter(item => item !== a_code); // x2Array에서 a_code를 제거
+                o2Array.push(a_code); // o2Array에 a_code 추가
+            }
+
+
+            console.log("O_1 배열: ", o1Array);
+            console.log("X_1 배열: ", x1Array);
+            console.log("O_2 배열: ", o2Array);
+            console.log("X_2 배열: ", x2Array);
+
+            let updatedO1 = o1Array.join("/");
+            let updatedX1 = x1Array.join("/");
+            let updatedO2 = o2Array.join("/");
+            let updatedX2 = x2Array.join("/");
+
+            console.log("수정된 O_1: ", updatedO1);
+            console.log("수정된 X_1: ", updatedX1);
+            console.log("수정된 O_2: ", updatedO2);
+            console.log("수정된 X_2: ", updatedX2);
+
+            // 출석 상태를 DB에 업데이트
+            db.run(
+                `UPDATE "${lec_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
+                [updatedO1, updatedX1, updatedO2, updatedX2, session_code],
+                (err) => {
+                    if (err) {
+                        console.error("업데이트 오류: ", err.message);
+                        return res.status(500).send("상태 업데이트에 실패했습니다.");
+                    }
+
+                    console.log("출석 상태가 업데이트되었습니다.");
+                }
+            );
+        }
+    );
+});
+
+
 
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);

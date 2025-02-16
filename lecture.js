@@ -29,12 +29,13 @@ router.get("/create-lecture", (req, res) => {
         <form action="/lec_create" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
             <label><b>출석체크 횟수</b></label>
+            <br>
             <div class="radio">
                 <label><input type="radio" name="at_cnt" value="1" required> 1회</label>
                 <label><input type="radio" name="at_cnt" value="2" required> 2회</label>
             </div>
             <br>
-            <input class="btn" type="submit" value="강좌 생성하기"></center>
+            <center><input class="btn" type="submit" value="강좌 생성하기"></center>
         </form>
         `,
             "",
@@ -99,8 +100,25 @@ router.post("/lec_create", (req, res) => {
             if (err) {
                 console.error("테이블 생성 중 오류:", err);
             } else {
-                console.log(`테이블이 성공적으로 생성됨!`);
+                console.log("테이블이 성공적으로 생성됨!");
             }
+            db.run(
+                `INSERT INTO ${l_code} (session, attend, late, absent) VALUES (?, ?, ?, ?)`,
+                [1, "", "", ""],
+                (err) => {
+                    if (err) {
+                        console.error(err);
+                        return res.send(
+                            '<script>alert("데이터 삽입 실패");history.back();</script>',
+                        );
+                    } else {
+                        console.log("데이터 삽입 성공!");
+                        return res.send(
+                            "<script>alert('강좌 생성 성공');location.href='/main'</script>",
+                        );
+                    }
+                },
+            );
         });
     }
 
@@ -117,7 +135,7 @@ router.post("/lec_create", (req, res) => {
             if (err) {
                 console.error("테이블 생성 중 오류:", err);
             } else {
-                console.log(`테이블이 성공적으로 생성됨!`);
+                console.log("테이블이 성공적으로 생성됨!");
 
                 // 테이블 생성 후 INSERT 실행
                 db.run(
@@ -140,6 +158,63 @@ router.post("/lec_create", (req, res) => {
             }
         });
     }
+});
+
+router.get("/newsession/:lec_code", (req, res) => {
+    const db = new sqlite3.Database("./DB.db");
+    const l_code = req.params.lec_code;
+    db.get("SELECT at_cnt FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+        if (!err) {
+            const at_cnt = row.at_cnt;
+            db.get(`SELECT session FROM ${l_code} WHERE ROWID = (SELECT MAX(ROWID) FROM ${l_code})`, [], (err, row) => {
+                if (err) {
+                    return res.send(
+                        "<script>alert('서버 오류입니다.');location.href='/main'</script>",
+                    );
+                }
+                let num = parseInt(row.session, 10);
+                let last = num + 1;
+                if (at_cnt == 1) {
+                    db.run(
+                        `INSERT INTO ${l_code} (session, attend, late, absent) VALUES (?, ?, ?, ?)`,
+                        [last, "", "", ""],
+                        (err) => {
+                            if (err) {
+                                console.error(err);
+                                return res.send(
+                                    '<script>alert("데이터 삽입 실패");history.back();</script>',
+                                );
+                            } else {
+                                console.log("데이터 삽입 성공!");
+                                return res.send(
+                                    "<script>history.back();</script>",
+                                );
+                            }
+                        },
+                    );
+                }
+            
+                if (at_cnt == 2) {
+                    db.run(
+                        `INSERT INTO ${l_code} (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
+                        [last, "", "", "", ""],
+                        (err) => {
+                            if (err) {
+                                console.error(err);
+                                return res.send(
+                                    '<script>alert("서버 오류입니다.");history.back();</script>',
+                                );
+                            } else {
+                                return res.send(
+                                    "<script>history.back();</script>",
+                                );
+                            }
+                        },
+                    );
+                }
+            });
+        }
+    });
 });
 
 router.get("/enroll-lecture", (req, res) => {
