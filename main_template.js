@@ -74,30 +74,6 @@ module.exports = {
                     .course-item:hover {
                         opacity: 0.8;
                     }
-
-                    .left-panel {
-                        flex: 1;
-                        width: 40%;
-                    }
-
-                    .right-panel {
-                        text-align: right;
-                        width: 60%;
-                    }
-
-                    .buttons {
-                        margin-top: 10px;
-                    }
-            
-                    .buttons button {
-                        padding: 10px;
-                        font-size: 14px;
-                        border: none;
-                        background: #ccc;
-                        margin: 5px;
-                        border-radius: 5px;
-                        cursor: pointer;
-                    }
                 </style>
             </head>
             <body>

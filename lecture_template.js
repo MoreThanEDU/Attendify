@@ -111,7 +111,6 @@ module.exports = {
                     .tablestatus span {
                         margin-right: 16px;
                     }
-                        
                     .right-panel {
                         text-align: right;
                         width: 60%;
