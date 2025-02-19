@@ -234,7 +234,7 @@ router.get("/enroll-lecture", (req, res) => {
             <input class="btn" type="submit" value="강좌 생성하기"></center>
         </form>
         `,
-            "",
+            ""
         );
         res.send(html);
     } else {
