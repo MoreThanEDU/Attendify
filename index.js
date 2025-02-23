@@ -603,6 +603,9 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             o1Array.push(a_code); // o1Array에 a_code 추가
                             x2Array = x2Array.filter(item => item !== a_code); // x2Array에서 a_code를 제거
                             o2Array.push(a_code); // o2Array에 a_code 추가
+                        } else {
+                            o1Array = o1Array.filter(item => item !== a_code); // o1Array에서 a_code를 제거
+                            x1Array.push(a_code); // x1Array에 a_code 추가
                         }
             
             
