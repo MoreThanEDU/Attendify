@@ -294,260 +294,149 @@ app.get("/lecture/:l_code", (req, res) => {
     );
 });
 
+// SSE 엔드포인트 추가 (실시간 출석 데이터 전송)
+app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
+    const lec_code = req.params.l_code;
+    const sessionNumber = req.params.session;
+    const db = new sqlite3.Database("./DB.db");
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const sendAttendanceData = () => {
+        db.get(
+            `SELECT * FROM "${lec_code}" WHERE session = ?`,
+            [sessionNumber],
+            (err, sessionData) => {
+                if (err || !sessionData) {
+                    console.error("DB 오류 또는 데이터 없음", err);
+                    res.write(`data: {}\n\n`); // 빈 데이터 전송
+                    return;
+                }
+
+                const response = {
+                    o_1: sessionData.o_1.split("/"),
+                    x_1: sessionData.x_1.split("/"),
+                    o_2: sessionData.o_2.split("/"),
+                    x_2: sessionData.x_2.split("/"),
+                };
+
+                res.write(`data: ${JSON.stringify(response)}\n\n`);
+            }
+        );
+    };
+
+    // 즉시 데이터 전송 후 3초마다 업데이트
+    sendAttendanceData();
+    const interval = setInterval(sendAttendanceData, 3000);
+
+    // 연결이 끊어지면 인터벌 제거
+    req.on("close", () => clearInterval(interval));
+});
+
+// 출석 리스트 페이지
 app.get("/attendancelist/:l_code/:session", (req, res) => {
     const lec_code = req.params.l_code;
     const sessionNumber = req.params.session;
     const db = new sqlite3.Database("./DB.db");
 
-    // 강좌 이름 조회
     db.get(
         `SELECT lec_name, s_a_code FROM lecture WHERE l_code = ?`,
         [lec_code],
         (err, lecRow) => {
-            if (err) {
-                console.error(err.message);
-                return res.status(500).send("서버 오류가 발생했습니다.");
-            }
-            if (!lecRow) {
-                return res.status(404).send("강좌를 찾을 수 없습니다.");
-            }
+            if (err) return res.status(500).send("서버 오류");
+            if (!lecRow) return res.status(404).send("강좌 없음");
 
             const lec_name = lecRow.lec_name;
-            const s_a_codes = lecRow.s_a_code
-                .split("/")
-                .filter((code) => code.trim() !== "");
+            const s_a_codes = lecRow.s_a_code.split("/").filter((code) => code.trim() !== "");
 
-            if (s_a_codes.length === 0) {
-                return res.status(404).send("등록된 학생이 없습니다.");
-            }
+            if (s_a_codes.length === 0) return res.status(404).send("등록된 학생 없음");
 
-            // 학생 이름 조회
-            const placeholders = s_a_codes.map(() => "?").join(", ");
             db.all(
-                `SELECT name, a_code FROM Users WHERE a_code IN (${placeholders})`,
+                `SELECT name, a_code FROM Users WHERE a_code IN (${s_a_codes.map(() => "?").join(", ")})`,
                 s_a_codes,
                 (err, studentRows) => {
-                    if (err) {
-                        console.error(err.message);
-                        return res.status(500).send("서버 오류가 발생했습니다.");
-                    }
+                    if (err) return res.status(500).send("서버 오류");
 
-                    // 회차 데이터 조회
-                    db.get(
-                        `SELECT * FROM "${lec_code}" WHERE session = ?`,
-                        [sessionNumber],
-                        (err, sessionData) => {
-                            if (err) {
-                                console.error(err.message);
-                                return res.status(500).send("서버 오류가 발생했습니다.");
-                            }
-
-                            // 출석 상태 처리
-                            const studentItems = studentRows
-                                .map((student) => {
-                                    let circle1 = ""; // 첫 번째 출석 상태
-                                    let circle2 = ""; // 두 번째 출석 상태
-                                    let present = ""; // 출석 상태 텍스트
-
-                                    // 첫 번째 차시 출석 상태
-                                    if (sessionData.o_1.includes(student.a_code)) {
-                                        circle1 = "O";
-                                    } else if (sessionData.x_1.includes(student.a_code)) {
-                                        circle1 = "X";
-                                    }
-
-                                    // 두 번째 차시 출석 상태
-                                    if (sessionData.o_2.includes(student.a_code)) {
-                                        circle2 = "O";
-                                    } else if (sessionData.x_2.includes(student.a_code)) {
-                                        circle2 = "X";
-                                    }
-
-                                    // 출석 상태 결정
-                                    if (circle1 === "O" && circle2 === "O") {
-                                        present = "출석";
-                                    } else if (circle1 === "X" && circle2 === "O") {
-                                        present = "지각";
-                                    } else if (circle1 === "O" && circle2 === "X") {
-                                        present = "조퇴";
-                                    } else if (circle1 === "X" && circle2 === "X") {
-                                        present = "결석";
-                                    }
-
-                                    return `
-                        <div class="student-item" data-a-code="${student.a_code}">
-                            <span>${student.name}</span>
-                            <div class="status">
-                                <img class="circle" src="/static/img/${circle1}a.png"></img>
-                                <img class="circle" src="/static/img/${circle2}a.png"></img>
-                                <span class="present" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code};'">${present}</span>
-                            </div>
-                        </div>`;
-                                })
-                                .join("");
-
-                            // HTML 생성
-                            const thtml = `
-                                <style>
-                                    body {
-                                        font-family: Arial, sans-serif;
-                                        margin: 0;
-                                        padding: 0;
-                                        background-color: #f9f9f9;
-                                        overflow-x: hidden;
-                                    }
-                            
-
-                                    .header {
-                                        background: linear-gradient(to right, #10A99A, #AED56F);
-                                        padding: 15px 20px;
-                                        display: flex;
-                                        align-items: center;
-                                        justify-content: space-between;
-                                    }
-
-                                    .header .logo {
-                                        font-size: 24px;
-                                        font-weight: bold;
-                                        color: white;
-                                    }
-
-                                    .header .admin {
-                                        display: flex;
-                                        align-items: center;
-                                        color: white;
-                                        font-weight: bold;
-                                    }
-
-                                    .header .admin .circle {
-                                        width: 20px;
-                                        height: 20px;
-                                        background-color: red;
-                                        border-radius: 50%;
-                                        margin-right: 10px;
-                                    }
-
-                                    .container {
-                                        display: flex;
-                                        padding: 20px;
-                                        gap: 20px;
-                                    }
-
-                                    .left-panel {
-                                        flex: 1;
-                                        width: 40%;
-                                    }
-
-                                    .course-title {
-                                        font-size: 22px;
-                                        font-weight: bold;
-                                    }
-
-                                    .dropdown {
-                                        padding: 5px 10px;
-                                        font-size: 16px;
-                                        margin-left: 10px;
-                                        border-radius: 5px;
-                                        border: 1px solid #ccc;
-                                    }
-
-                                    .attendance-list {
-                                        margin-top: 15px;
-                                    }
-
-                                    .attendance-header {
-                                        font-weight: bold;
-                                        display: flex;
-                                        justify-content: space-between;
-                                        margin-bottom: 10px;
-                                    }
-
-                                    .student-item {
-                                        background: linear-gradient(to right, #10A99A, #AED56F);
-                                        padding: 10px;
-                                        border-radius: 8px;
-                                        color: white;
-                                        font-weight: bold;
-                                        display: flex;
-                                        align-items: center;
-                                        justify-content: space-between;
-                                        margin-bottom: 5px;
-                                    }
-
-                                    .status {
-                                        display: flex;
-                                        align-items: center;
-                                        gap: 10px;
-                                    }
-
-                                    .circle {
-                                        width: 20px;
-                                        height: 20px;
-                                        display: flex;
-                                        align-items: center;
-                                        justify-content: center;
-                                        font-size: 50px;
-                                        font-weight: bold;
-                                        margin-right: 20px;
-                                    }
-
-                                    .tablestatus span {
-                                        margin-right: 16px;
-                                    }
-                                    .right-panel {
-                                        text-align: right;
-                                        width: 60%;
-                                    }
-
-                                    .qr-code {
-                                        width: 200px;
-                                        height: 200px;
-                                        background: #fff;
-                                        margin-top: 20px;
-                                    }
-
-                                    .buttons {
-                                        margin-top: 10px;
-                                    }
-
-                                    .buttons button {
-                                        padding: 10px;
-                                        font-size: 14px;
-                                        border: none;
-                                        background: #ccc;
-                                        margin: 5px;
-                                        border-radius: 5px;
-                                        cursor: pointer;
-                                    }
-
-                                    .buttons button:hover {
-                                        background: #bbb;
-                                    }
-                                </style>
-                                <div class="container" style="width: 100%; padding: 10px;">
-                                    <div class="attendance-list" id="attendanceList" style="width: 95%;">
-                                        <div class="attendance-header">
-                                            <span>이름</span>
-                                            <div>
-                                                <span style="margin-right: 20px;">1차</span>
-                                                <span style="margin-right: 20px;">2차</span>
-                                                <span style="margin-right: 10px;">상태</span>
-                                            </div>
+                    // HTML 반환
+                    res.send(`
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>${lec_name} 출석 관리</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
+                                .container { width: 95%; padding: 10px; }
+                                .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
+                                .student-item { background: linear-gradient(to right, #10A99A, #AED56F); padding: 10px; border-radius: 8px; color: white; font-weight: bold; display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+                                .status { display: flex; align-items: center; gap: 10px; }
+                                .circle { width: 20px; height: 20px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="container">
+                                <div class="attendance-list" id="attendanceList">
+                                    <div class="attendance-header">
+                                        <span>이름</span>
+                                        <div>
+                                            <span style="margin-right: 20px;">1차</span>
+                                            <span style="margin-right: 20px;">2차</span>
+                                            <span style="margin-right: 10px;">상태</span>
                                         </div>
-                                        ${studentItems}
                                     </div>
+                                    ${studentRows.map(student => `
+                                        <div class="student-item" data-a-code="${student.a_code}">
+                                            <span>${student.name}</span>
+                                            <div class="status">
+                                                <img class="circle" id="circle1-${student.a_code}" src="/static/img/none.png">
+                                                <img class="circle" id="circle2-${student.a_code}" src="/static/img/none.png">
+                                                <span class="present" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">-</span>
+                                            </div>
+                                        </div>`).join("")}
                                 </div>
-                                <script>setInterval(function() { location.reload(); }, 1000);</script>
-                            `;
-                            res.send(thtml);
-                        }
-                    );
+                            </div>
+
+                            <script>
+                                const eventSource = new EventSource("/attendancelist/sse/${lec_code}/${sessionNumber}");
+
+                                eventSource.onmessage = (event) => {
+                                    const data = JSON.parse(event.data);
+                                    if (!data.o_1) return;
+
+                                    document.querySelectorAll(".student-item").forEach(item => {
+                                        const a_code = item.dataset.aCode;
+                                        let circle1 = "none";
+                                        let circle2 = "none";
+                                        let present = "-";
+
+                                        if (data.o_1.includes(a_code)) circle1 = "O";
+                                        else if (data.x_1.includes(a_code)) circle1 = "X";
+
+                                        if (data.o_2.includes(a_code)) circle2 = "O";
+                                        else if (data.x_2.includes(a_code)) circle2 = "X";
+
+                                        if (circle1 === "O" && circle2 === "O") present = "출석";
+                                        else if (circle1 === "X" && circle2 === "O") present = "지각";
+                                        else if (circle1 === "O" && circle2 === "X") present = "조퇴";
+                                        else if (circle1 === "X" && circle2 === "X") present = "결석";
+
+                                        document.getElementById("circle1-" + a_code).src = "/static/img/" + circle1 + "a.png";
+                                        document.getElementById("circle2-" + a_code).src = "/static/img/" + circle2 + "a.png";
+                                        document.getElementById("status-" + a_code).innerText = present;
+                                    });
+                                };
+
+                                eventSource.onerror = () => console.log("SSE 연결 종료됨");
+                            </script>
+                        </body>
+                        </html>
+                    `);
                 }
             );
         }
     );
 });
-
 
 app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
     const lec_code = req.params.lec_code;
