@@ -271,7 +271,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                     
                                     <div class="right-panel">
                                         <div class="buttons">
-                                            <button onclick="/newsession/${lec_code}">새 회차 만들기</button>
+                                            <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
                                             <button>출석 통계 확인</button>
                                             <button>출석체크 중단</button>
                                             <button>수업 삭제하기</button>
