@@ -118,8 +118,8 @@ app.get("/main", (req, res) => {
 
                 // a_code에 해당하는 모든 강좌 이름 조회
                 db.all(
-                    `SELECT lec_name, l_code FROM lecture WHERE s_a_code = ?`,
-                    [a_code],
+                    `SELECT lec_name, l_code FROM lecture WHERE s_a_code LIKE ?`,
+                    [`%${a_code}%`],
                     (err, rows) => {
                         if (err) {
                             return console.error(err.message);
@@ -132,13 +132,20 @@ app.get("/main", (req, res) => {
                                     `<div class="course-item">${row.lec_name}</div>`,
                             )
                             .join("");
-                        console.log(courseItems);
+                        console.log("a_code:", a_code);
+                        console.log("rows:", rows);
+                        console.log("coureseItems:", courseItems);
                         const content = `
-                        <div class="container">
-                            <input class="btn" onclick="location.href='/enroll-lecture'" value="수강 신청"></button>
-                            <div class="title">수강중인 강좌</div>
-                            <div class="course-list">
-                                ${courseItems}
+                        <div class="container" style="display: flex; padding: 20px; gap: 20px">
+                            <div class="left-panel">
+                                <div class="title">수강중인 강좌</div>
+                                <div class="course-list">${courseItems}</div>
+                            </div>
+                            <div class="right-panel">
+                                <div class="buttons">
+                                    <button>출석체크하기</button>
+                                    <button type = "button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
+                                </div>
                             </div>
                         </div>`;
 
