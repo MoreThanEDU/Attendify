@@ -251,7 +251,7 @@ router.get("/cancel-delete", (req, res) => {
 
     const db = new sqlite3.Database("./DB.db");
     db.run(
-        "UPDATE Users SET bigo = NULL WHERE id = ?",
+        "UPDATE Users SET bigo = ' ' WHERE id = ?",
         [userId],
         (err) => {
             if (err) {
