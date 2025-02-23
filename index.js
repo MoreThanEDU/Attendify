@@ -11,6 +11,85 @@ const path = require("path");
 const cron = require("node-cron");
 var sqlite3 = require("sqlite3").verbose();
 const deleteExpiredAccounts = require("./deleteExpiredAccounts");
+var qrcode = require("qrcode")
+
+
+function generateRandomString(length) {
+    const characters =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
+    const charactersLength = characters.length;
+
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(
+            Math.floor(Math.random() * charactersLength),
+        );
+    }
+
+    return result;
+}
+
+function generateQRcode() {
+    url = generateRandomString(11);
+    qrcode.toDataURL(url, function (err, res) {
+        if (err) {
+          console.error('QR 코드 생성에 실패했습니다:', err);
+          return;
+        }
+        const thtml = ltemplate.HTML(
+            req.session.username,
+            `
+            <div class="container">
+                <div class="left-panel">
+                    <div class="course-title">
+                        <h2>${lec_name}</h2>
+                        <select class="dropdown" id="sessionDropdown">
+                            ${sessionOptions}
+                        </select>
+                    </div>
+                    
+                    <!-- 출석 리스트를 표시할 iframe -->
+                    <iframe id="attendanceFrame" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
+                </div>
+                
+                <div class="right-panel">
+                    <div class="buttons">
+                        <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
+                        <button>출석 통계 확인</button>
+                        <button id='attendify' onclick="toggle();">출석체크 시작</button>
+                        <button>수업 삭제하기</button>
+                    </div>
+                    <center><div class="qrcode" id="qrcode">
+                        <h2>출석체크가 시작되면 QR코드가 나타납니다.</h2>
+                        <img src="${res}" alt="QR Code"/>
+                    </div></center>
+                </div>
+            </div>
+            <script>
+
+                const iframe = document.getElementById('attendanceFrame');
+                iframe.src = "/attendancelist/${lec_code}/1";
+                // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
+                document.getElementById('sessionDropdown').addEventListener('change', function() {
+                    const selectedSession = this.value;
+                    const iframe = document.getElementById('attendanceFrame');
+                    iframe.src = "/attendancelist/${lec_code}/" + selectedSession;  // 선택된 회차에 맞는 URL로 변경
+                });
+                function toggle() {
+                    const attendify = document.getElementById('attendify');
+                    if (attendify.innerText === "출석체크 시작") {
+                        attendify.innerText = "출석체크 중단";
+                        location.href="/generateqrcode";
+                    } else {
+                        attendify.innerText = "출석체크 시작";
+                    }
+                }
+            </script>
+            `,
+        );
+        res.send(thtml);
+    });
+}
 
 cron.schedule("0 0 * * *", () => {
     console.log("Running account deletion job...");
@@ -162,6 +241,10 @@ app.get("/main", (req, res) => {
     }
 });
 
+app.get("/generateqrcode", (req, res) => {
+    generateQRcode();
+});
+
 app.get("/lecture/:l_code", (req, res) => {
     if (!req.session.is_logined) {
         return res.redirect("/login");
@@ -273,15 +356,17 @@ app.get("/lecture/:l_code", (req, res) => {
                                         <div class="buttons">
                                             <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
                                             <button>출석 통계 확인</button>
-                                            <button>출석체크 중단</button>
+                                            <button id='attendify' onclick="toggle();">출석체크 시작</button>
                                             <button>수업 삭제하기</button>
                                         </div>
-                                        <center><div class="qr-code">
+                                        <center><div class="qrcode" id="qrcode">
                                             <h2>출석체크가 시작되면 QR코드가 나타납니다.</h2>
+                                            <img src="/static/qrcode/${qrcode}"}>
                                         </div></center>
                                     </div>
                                 </div>
                                 <script>
+
                                     const iframe = document.getElementById('attendanceFrame');
                                     iframe.src = "/attendancelist/${lec_code}/1";
                                     // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
@@ -290,6 +375,15 @@ app.get("/lecture/:l_code", (req, res) => {
                                         const iframe = document.getElementById('attendanceFrame');
                                         iframe.src = "/attendancelist/${lec_code}/" + selectedSession;  // 선택된 회차에 맞는 URL로 변경
                                     });
+                                    function toggle() {
+                                        const attendify = document.getElementById('attendify');
+                                        if (attendify.innerText === "출석체크 시작") {
+                                            attendify.innerText = "출석체크 중단";
+                                            location.href="/generateqrcode";
+                                        } else {
+                                            attendify.innerText = "출석체크 시작";
+                                        }
+                                    }
                                 </script>
                                 `,
                             );
