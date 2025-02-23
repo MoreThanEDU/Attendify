@@ -118,8 +118,8 @@ app.get("/main", (req, res) => {
 
                 // a_code에 해당하는 모든 강좌 이름 조회
                 db.all(
-                    `SELECT lec_name, l_code FROM lecture WHERE s_a_code = ?`,
-                    [a_code],
+                    `SELECT lec_name, l_code FROM lecture WHERE s_a_code LIKE ?`,
+                    [`%${a_code}%`],
                     (err, rows) => {
                         if (err) {
                             return console.error(err.message);
@@ -312,35 +312,77 @@ app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const sendAttendanceData = () => {
-        db.get(
-            `SELECT * FROM "${lec_code}" WHERE session = ?`,
-            [sessionNumber],
-            (err, sessionData) => {
-                if (err || !sessionData) {
-                    console.error("DB 오류 또는 데이터 없음", err);
-                    res.write(`data: {}\n\n`); // 빈 데이터 전송
-                    return;
-                }
-
-                const response = {
-                    o_1: sessionData.o_1.split("/"),
-                    x_1: sessionData.x_1.split("/"),
-                    o_2: sessionData.o_2.split("/"),
-                    x_2: sessionData.x_2.split("/"),
+    db.get(
+        `SELECT at_cnt FROM lecture WHERE l_code = ?`,
+        [lec_code],
+        (err, lecRow) => {
+            if (err) return res.status(500).send("서버 오류");
+            if (!lecRow) return res.status(404).send("강좌 없음");
+            const at_cnt = lecRow.at_cnt;
+            if (at_cnt == 2) {
+                const sendAttendanceData = () => {
+                    db.get(
+                        `SELECT * FROM "${lec_code}" WHERE session = ?`,
+                        [sessionNumber],
+                        (err, sessionData) => {
+                            if (err || !sessionData) {
+                                console.error("DB 오류 또는 데이터 없음", err);
+                                res.write(`data: {}\n\n`); // 빈 데이터 전송
+                                return;
+                            }
+            
+                            const response = {
+                                o_1: sessionData.o_1.split("/"),
+                                x_1: sessionData.x_1.split("/"),
+                                o_2: sessionData.o_2.split("/"),
+                                x_2: sessionData.x_2.split("/"),
+                            };
+            
+                            res.write(`data: ${JSON.stringify(response)}\n\n`);
+                        }
+                    );
                 };
-
-                res.write(`data: ${JSON.stringify(response)}\n\n`);
+            
+                // 즉시 데이터 전송 후 3초마다 업데이트
+                sendAttendanceData();
+                const interval = setInterval(sendAttendanceData, 500);
+            
+                // 연결이 끊어지면 인터벌 제거
+                req.on("close", () => clearInterval(interval));
             }
-        );
-    };
+            if (at_cnt == 1) {
+                const sendAttendanceData = () => {
+                    db.get(
+                        `SELECT * FROM "${lec_code}" WHERE session = ?`,
+                        [sessionNumber],
+                        (err, sessionData) => {
+                            if (err || !sessionData) {
+                                console.error("DB 오류 또는 데이터 없음", err);
+                                res.write(`data: {}\n\n`); // 빈 데이터 전송
+                                return;
+                            }
+            
+                            const response = {
+                                attend: sessionData.attend.split("/"),
+                                late: sessionData.late.split("/"),
+                                absent: sessionData.absent.split("/"),
+                            };
+            
+                            res.write(`data: ${JSON.stringify(response)}\n\n`);
+                        }
+                    );
+                };
+            
+                // 즉시 데이터 전송 후 3초마다 업데이트
+                sendAttendanceData();
+                const interval = setInterval(sendAttendanceData, 500);
+            
+                // 연결이 끊어지면 인터벌 제거
+                req.on("close", () => clearInterval(interval));
+            }
+    });
 
-    // 즉시 데이터 전송 후 3초마다 업데이트
-    sendAttendanceData();
-    const interval = setInterval(sendAttendanceData, 3000);
-
-    // 연결이 끊어지면 인터벌 제거
-    req.on("close", () => clearInterval(interval));
+    
 });
 
 // 출석 리스트 페이지
@@ -350,98 +392,170 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
     const db = new sqlite3.Database("./DB.db");
 
     db.get(
-        `SELECT lec_name, s_a_code FROM lecture WHERE l_code = ?`,
+        `SELECT lec_name, s_a_code, at_cnt FROM lecture WHERE l_code = ?`,
         [lec_code],
         (err, lecRow) => {
             if (err) return res.status(500).send("서버 오류");
             if (!lecRow) return res.status(404).send("강좌 없음");
 
             const lec_name = lecRow.lec_name;
+            const at_cnt = lecRow.at_cnt;
             const s_a_codes = lecRow.s_a_code.split("/").filter((code) => code.trim() !== "");
 
             if (s_a_codes.length === 0) return res.status(404).send("등록된 학생 없음");
-
-            db.all(
-                `SELECT name, a_code FROM Users WHERE a_code IN (${s_a_codes.map(() => "?").join(", ")})`,
-                s_a_codes,
-                (err, studentRows) => {
-                    if (err) return res.status(500).send("서버 오류");
-
-                    // HTML 반환
-                    res.send(`
-                        <html>
-                        <head>
-                            <meta charset="UTF-8">
-                            <title>${lec_name} 출석 관리</title>
-                            <style>
-                                body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
-                                .container { width: 95%; padding: 10px; }
-                                .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
-                                .student-item { background: linear-gradient(to right, #10A99A, #AED56F); padding: 10px; border-radius: 8px; color: white; font-weight: bold; display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-                                .status { display: flex; align-items: center; gap: 10px; }
-                                .circle { width: 20px; height: 20px; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="container">
-                                <div class="attendance-list" id="attendanceList">
-                                    <div class="attendance-header">
-                                        <span>이름</span>
-                                        <div>
-                                            <span style="margin-right: 20px;">1차</span>
-                                            <span style="margin-right: 20px;">2차</span>
-                                            <span style="margin-right: 10px;">상태</span>
-                                        </div>
-                                    </div>
-                                    ${studentRows.map(student => `
-                                        <div class="student-item" data-a-code="${student.a_code}">
-                                            <span>${student.name}</span>
-                                            <div class="status">
-                                                <img class="circle" id="circle1-${student.a_code}" src="/static/img/none.png">
-                                                <img class="circle" id="circle2-${student.a_code}" src="/static/img/none.png">
-                                                <span class="present" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">-</span>
+            if (at_cnt == 2) {
+                db.all(
+                    `SELECT name, a_code FROM Users WHERE a_code IN (${s_a_codes.map(() => "?").join(", ")})`,
+                    s_a_codes,
+                    (err, studentRows) => {
+                        if (err) return res.status(500).send("서버 오류");
+    
+                        // HTML 반환
+                        res.send(`
+                            <html>
+                            <head>
+                                <meta charset="UTF-8">
+                                <title>${lec_name} 출석 관리</title>
+                                <style>
+                                    body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
+                                    .container { width: 95%; padding: 10px; }
+                                    .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
+                                    .student-item { background: linear-gradient(to right, #10A99A, #AED56F); padding: 10px; border-radius: 8px; color: white; font-weight: bold; display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+                                    .status { display: flex; align-items: center; gap: 10px; }
+                                    .circle { width: 20px; height: 20px; margin-right: 16px; }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="container">
+                                    <div class="attendance-list" id="attendanceList">
+                                        <div class="attendance-header">
+                                            <span>이름</span>
+                                            <div>
+                                                <span style="margin-right: 20px;">1차</span>
+                                                <span style="margin-right: 20px;">2차</span>
+                                                <span style="margin-right: 10px;">상태</span>
                                             </div>
-                                        </div>`).join("")}
+                                        </div>
+                                        ${studentRows.map(student => `
+                                            <div class="student-item" data-a-code="${student.a_code}">
+                                                <span>${student.name}</span>
+                                                <div class="status">
+                                                    <img class="circle" id="circle1-${student.a_code}" src="/static/img/none.png">
+                                                    <img class="circle" id="circle2-${student.a_code}" src="/static/img/none.png">
+                                                    <span class="present" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">-</span>
+                                                </div>
+                                            </div>`).join("")}
+                                    </div>
                                 </div>
-                            </div>
+    
+                                <script>
+                                    const eventSource = new EventSource("/attendancelist/sse/${lec_code}/${sessionNumber}");
+    
+                                    eventSource.onmessage = (event) => {
+                                        const data = JSON.parse(event.data);
+                                        if (!data.o_1) return;
+    
+                                        document.querySelectorAll(".student-item").forEach(item => {
+                                            const a_code = item.dataset.aCode;
+                                            let circle1 = "none";
+                                            let circle2 = "none";
+                                            let present = "-";
+    
+                                            if (data.o_1.includes(a_code)) circle1 = "O";
+                                            else if (data.x_1.includes(a_code)) circle1 = "X";
+    
+                                            if (data.o_2.includes(a_code)) circle2 = "O";
+                                            else if (data.x_2.includes(a_code)) circle2 = "X";
+    
+                                            if (circle1 === "O" && circle2 === "O") present = "출석";
+                                            else if (circle1 === "X" && circle2 === "O") present = "지각";
+                                            else if (circle1 === "O" && circle2 === "X") present = "조퇴";
+                                            else if (circle1 === "X" && circle2 === "X") present = "결석";
+    
+                                            document.getElementById("circle1-" + a_code).src = "/static/img/" + circle1 + "a.png";
+                                            document.getElementById("circle2-" + a_code).src = "/static/img/" + circle2 + "a.png";
+                                            document.getElementById("status-" + a_code).innerText = present;
+                                        });
+                                    };
+    
+                                    eventSource.onerror = () => console.log("SSE 연결 종료됨");
+                                </script>
+                            </body>
+                            </html>
+                        `);
+                    }
+                );
+            }
+            if (at_cnt == 1) {
+                db.all(
+                    `SELECT name, a_code FROM Users WHERE a_code IN (${s_a_codes.map(() => "?").join(", ")})`,
+                    s_a_codes,
+                    (err, studentRows) => {
+                        if (err) return res.status(500).send("서버 오류");
+    
+                        // HTML 반환
+                        res.send(`
+                            <html>
+                            <head>
+                                <meta charset="UTF-8">
+                                <title>${lec_name} 출석 관리</title>
+                                <style>
+                                    body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
+                                    .container { width: 95%; padding: 10px; }
+                                    .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
+                                    .student-item { background: linear-gradient(to right, #10A99A, #AED56F); padding: 10px; border-radius: 8px; color: white; font-weight: bold; display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+                                    .status { display: flex; align-items: center; gap: 10px; }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="container">
+                                    <div class="attendance-list" id="attendanceList">
+                                        <div class="attendance-header">
+                                            <span>이름</span>
+                                            <div>
+                                                <span style="margin-right: 10px;">상태</span>
+                                            </div>
+                                        </div>
+                                        ${studentRows.map(student => `
+                                            <div class="student-item" data-a-code="${student.a_code}">
+                                                <span>${student.name}</span>
+                                                <div class="status">
+                                                    <span class="present" style="cursor:pointer;" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">미출석</span>
+                                                </div>
+                                            </div>`).join("")}
+                                    </div>
+                                </div>
 
-                            <script>
-                                const eventSource = new EventSource("/attendancelist/sse/${lec_code}/${sessionNumber}");
+                                <script>
+                                    const eventSource = new EventSource("/attendancelist/sse/${lec_code}/${sessionNumber}");
 
-                                eventSource.onmessage = (event) => {
-                                    const data = JSON.parse(event.data);
-                                    if (!data.o_1) return;
+                                    eventSource.onmessage = (event) => {
+                                        const data = JSON.parse(event.data);
 
-                                    document.querySelectorAll(".student-item").forEach(item => {
-                                        const a_code = item.dataset.aCode;
-                                        let circle1 = "none";
-                                        let circle2 = "none";
-                                        let present = "-";
+                                        document.querySelectorAll(".student-item").forEach(item => {
+                                            const a_code = item.dataset.aCode;
+                                            let present = "미출석";  // 기본값
 
-                                        if (data.o_1.includes(a_code)) circle1 = "O";
-                                        else if (data.x_1.includes(a_code)) circle1 = "X";
+                                            if (data.attend.includes(a_code)) present = "출석";
+                                            else if (data.late.includes(a_code)) present = "지각";
+                                            else if (data.absent.includes(a_code)) present = "결석";
 
-                                        if (data.o_2.includes(a_code)) circle2 = "O";
-                                        else if (data.x_2.includes(a_code)) circle2 = "X";
+                                            document.getElementById("status-" + a_code).innerText = present;
+                                        });
+                                    };
 
-                                        if (circle1 === "O" && circle2 === "O") present = "출석";
-                                        else if (circle1 === "X" && circle2 === "O") present = "지각";
-                                        else if (circle1 === "O" && circle2 === "X") present = "조퇴";
-                                        else if (circle1 === "X" && circle2 === "X") present = "결석";
-
-                                        document.getElementById("circle1-" + a_code).src = "/static/img/" + circle1 + "a.png";
-                                        document.getElementById("circle2-" + a_code).src = "/static/img/" + circle2 + "a.png";
-                                        document.getElementById("status-" + a_code).innerText = present;
-                                    });
-                                };
-
-                                eventSource.onerror = () => console.log("SSE 연결 종료됨");
-                            </script>
-                        </body>
+                                    eventSource.onerror = () => console.log("SSE 연결 종료됨");
+                                </script>
+                            </body>
                         </html>
-                    `);
-                }
-            );
+
+                            </body>
+                            </html>
+                        `);
+                    }
+                );
+            }
+            
         }
     );
 });
@@ -452,76 +566,133 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
     const a_code = req.params.a_code;
     const db = new sqlite3.Database("./DB.db");
 
-    // 강의의 출석 정보 가져오기
     db.get(
-        `SELECT o_1, x_1, o_2, x_2 FROM "${lec_code}" WHERE session = ?`,
-        [session_code],
-        (err, sessionData) => {
-            if (err) {
-                console.error("쿼리 실행 오류: ", err.message);
-                return res.status(500).send("서버 오류가 발생했습니다.");
-            }
-
-            if (!sessionData) {
-                console.log("해당 session의 데이터가 없습니다.");
-                return res.status(404).send("해당 session의 데이터가 없습니다.");
-            }
-
-            // 각 출석 상태를 '/'로 나누어 배열로 저장
-            let o1Array = sessionData.o_1.split("/").filter(item => item.trim() !== "");
-            let x1Array = sessionData.x_1.split("/").filter(item => item.trim() !== "");
-            let o2Array = sessionData.o_2.split("/").filter(item => item.trim() !== "");
-            let x2Array = sessionData.x_2.split("/").filter(item => item.trim() !== "");
-
-            if (o1Array.includes(a_code) && o2Array.includes(a_code)) {
-                o1Array = o1Array.filter(item => item !== a_code); // o1Array에서 a_code를 제거
-                x1Array.push(a_code); // x1Array에 a_code 추가
-            } else if (x1Array.includes(a_code) && o2Array.includes(a_code)) {
-                x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
-                o1Array.push(a_code); // o1Array에 a_code 추가
-                o2Array = o2Array.filter(item => item !== a_code); // o2Array에서 a_code를 제거
-                x2Array.push(a_code); // x2Array에 a_code 추가
-            } else if (o1Array.includes(a_code) && x2Array.includes(a_code)) {
-                o1Array = o1Array.filter(item => item !== a_code); // o1Array에서 a_code를 제거
-                x1Array.push(a_code); // x1Array에 a_code 추가
-            } else if (x1Array.includes(a_code) && x2Array.includes(a_code)) {
-                x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
-                o1Array.push(a_code); // o1Array에 a_code 추가
-                x2Array = x2Array.filter(item => item !== a_code); // x2Array에서 a_code를 제거
-                o2Array.push(a_code); // o2Array에 a_code 추가
-            }
-
-
-            console.log("O_1 배열: ", o1Array);
-            console.log("X_1 배열: ", x1Array);
-            console.log("O_2 배열: ", o2Array);
-            console.log("X_2 배열: ", x2Array);
-
-            let updatedO1 = o1Array.join("/");
-            let updatedX1 = x1Array.join("/");
-            let updatedO2 = o2Array.join("/");
-            let updatedX2 = x2Array.join("/");
-
-            console.log("수정된 O_1: ", updatedO1);
-            console.log("수정된 X_1: ", updatedX1);
-            console.log("수정된 O_2: ", updatedO2);
-            console.log("수정된 X_2: ", updatedX2);
-
-            // 출석 상태를 DB에 업데이트
-            db.run(
-                `UPDATE "${lec_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
-                [updatedO1, updatedX1, updatedO2, updatedX2, session_code],
-                (err) => {
-                    if (err) {
-                        console.error("업데이트 오류: ", err.message);
-                        return res.status(500).send("상태 업데이트에 실패했습니다.");
+        `SELECT at_cnt FROM lecture WHERE l_code = ?`,
+        [lec_code],
+        (err, lecRow) => {
+            if (err) return res.status(500).send("서버 오류");
+            if (!lecRow) return res.status(404).send("강좌 없음");
+            const at_cnt = lecRow.at_cnt;
+            if (at_cnt == 2) {
+                db.get(
+                    `SELECT o_1, x_1, o_2, x_2 FROM "${lec_code}" WHERE session = ?`,
+                    [session_code],
+                    (err, sessionData) => {
+                        if (err) {
+                            console.error("쿼리 실행 오류: ", err.message);
+                            return res.status(500).send("서버 오류가 발생했습니다.");
+                        }
+            
+                        if (!sessionData) {
+                            console.log("해당 session의 데이터가 없습니다.");
+                            return res.status(404).send("해당 session의 데이터가 없습니다.");
+                        }
+            
+                        // 각 출석 상태를 '/'로 나누어 배열로 저장
+                        let o1Array = sessionData.o_1.split("/").filter(item => item.trim() !== "");
+                        let x1Array = sessionData.x_1.split("/").filter(item => item.trim() !== "");
+                        let o2Array = sessionData.o_2.split("/").filter(item => item.trim() !== "");
+                        let x2Array = sessionData.x_2.split("/").filter(item => item.trim() !== "");
+            
+                        if (o1Array.includes(a_code) && o2Array.includes(a_code)) {
+                            o1Array = o1Array.filter(item => item !== a_code); // o1Array에서 a_code를 제거
+                            x1Array.push(a_code); // x1Array에 a_code 추가
+                        } else if (x1Array.includes(a_code) && o2Array.includes(a_code)) {
+                            x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
+                            o1Array.push(a_code); // o1Array에 a_code 추가
+                            o2Array = o2Array.filter(item => item !== a_code); // o2Array에서 a_code를 제거
+                            x2Array.push(a_code); // x2Array에 a_code 추가
+                        } else if (o1Array.includes(a_code) && x2Array.includes(a_code)) {
+                            o1Array = o1Array.filter(item => item !== a_code); // o1Array에서 a_code를 제거
+                            x1Array.push(a_code); // x1Array에 a_code 추가
+                        } else if (x1Array.includes(a_code) && x2Array.includes(a_code)) {
+                            x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
+                            o1Array.push(a_code); // o1Array에 a_code 추가
+                            x2Array = x2Array.filter(item => item !== a_code); // x2Array에서 a_code를 제거
+                            o2Array.push(a_code); // o2Array에 a_code 추가
+                        }
+            
+            
+                        console.log("O_1 배열: ", o1Array);
+                        console.log("X_1 배열: ", x1Array);
+                        console.log("O_2 배열: ", o2Array);
+                        console.log("X_2 배열: ", x2Array);
+            
+                        let updatedO1 = o1Array.join("/");
+                        let updatedX1 = x1Array.join("/");
+                        let updatedO2 = o2Array.join("/");
+                        let updatedX2 = x2Array.join("/");
+            
+                        console.log("수정된 O_1: ", updatedO1);
+                        console.log("수정된 X_1: ", updatedX1);
+                        console.log("수정된 O_2: ", updatedO2);
+                        console.log("수정된 X_2: ", updatedX2);
+            
+                        // 출석 상태를 DB에 업데이트
+                        db.run(
+                            `UPDATE "${lec_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
+                            [updatedO1, updatedX1, updatedO2, updatedX2, session_code],
+                            (err) => {
+                                if (err) {
+                                    console.error("업데이트 오류: ", err.message);
+                                    return res.status(500).send("상태 업데이트에 실패했습니다.");
+                                }
+            
+                                console.log("출석 상태가 업데이트되었습니다.");
+                            }
+                        );
                     }
-
-                    console.log("출석 상태가 업데이트되었습니다.");
-                }
-            );
-        }
-    );
+                );
+            }
+            if (at_cnt == 1) {
+                db.get(
+                    `SELECT attend, late, absent FROM "${lec_code}" WHERE session = ?`,
+                    [session_code],
+                    (err, sessionData) => {
+                        if (err) {
+                            console.error("쿼리 실행 오류: ", err.message);
+                            return res.status(500).send("서버 오류가 발생했습니다.");
+                        }
+            
+                        if (!sessionData) {
+                            console.log("해당 session의 데이터가 없습니다.");
+                            return res.status(404).send("해당 session의 데이터가 없습니다.");
+                        }
+            
+                        // 각 출석 상태를 '/'로 나누어 배열로 저장
+                        let attend = sessionData.attend.split("/").filter(item => item.trim() !== "");
+                        let late = sessionData.late.split("/").filter(item => item.trim() !== "");
+                        let absent = sessionData.absent.split("/").filter(item => item.trim() !== "");
+            
+                        if (attend.includes(a_code)) {
+                            attend = attend.filter(item => item !== a_code);
+                            late.push(a_code);
+                        } else if (late.includes(a_code)) {
+                            late = late.filter(item => item !== a_code);
+                            absent.push(a_code); 
+                        } else if (absent.includes(a_code)) {
+                            absent = absent.filter(item => item !== a_code);
+                            attend.push(a_code); 
+                        }
+            
+                        let attendupdate = attend.join("/");
+                        let lateupdate = late.join("/");
+                        let absentupdate = absent.join("/");
+                        // 출석 상태를 DB에 업데이트
+                        db.run(
+                            `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
+                            [attendupdate, lateupdate, absentupdate, session_code],
+                            (err) => {
+                                if (err) {
+                                    console.error("업데이트 오류: ", err.message);
+                                    return res.status(500).send("상태 업데이트에 실패했습니다.");
+                                }
+                            }
+                        );
+                    }
+                );
+            }
+        })
 });
 
 
