@@ -145,7 +145,9 @@ module.exports = {
             </head>
             <body>
                 <div class="header">
-                    <img style="width: 225px;" src="/static/img/attendify_logo_white.png">
+                    <a href="/main">
+                        <img style="width: 225px;" src="/static/img/attendify_logo_white.png">
+                    </a>
                     <div class="admin">
                         ${username}님
                     </div>
