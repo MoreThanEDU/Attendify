@@ -459,7 +459,7 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                             const a_code = item.dataset.aCode;
                                             let circle1 = "none";
                                             let circle2 = "none";
-                                            let present = "-";
+                                            let present = "미출석";
     
                                             if (data.o_1.includes(a_code)) circle1 = "O";
                                             else if (data.x_1.includes(a_code)) circle1 = "X";
@@ -610,6 +610,8 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             o1Array.push(a_code); // o1Array에 a_code 추가
                             x2Array = x2Array.filter(item => item !== a_code); // x2Array에서 a_code를 제거
                             o2Array.push(a_code); // o2Array에 a_code 추가
+                        } else {
+                            o1Array.push(a_code); // x1Array에 a_code 추가
                         }
             
             
@@ -672,6 +674,8 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             absent.push(a_code); 
                         } else if (absent.includes(a_code)) {
                             absent = absent.filter(item => item !== a_code);
+                            attend.push(a_code); 
+                        } else {
                             attend.push(a_code); 
                         }
             
