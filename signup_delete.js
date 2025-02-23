@@ -222,7 +222,7 @@ router.post("/delete-account", (req, res) => {
         
         const now = new Date().toISOString();
         db.run(
-            "UPDATE Users SET delete_requested_at = ? WHERE id = ?",
+            "UPDATE Users SET bigo = ? WHERE id = ?",
             [now, userId],
             (err) => {
                 if (err) {
@@ -251,7 +251,7 @@ router.get("/cancel-delete", (req, res) => {
 
     const db = new sqlite3.Database("./DB.db");
     db.run(
-        "UPDATE Users SET delete_requested_at = NULL WHERE id = ?",
+        "UPDATE Users SET bigo = NULL WHERE id = ?",
         [userId],
         (err) => {
             if (err) {
