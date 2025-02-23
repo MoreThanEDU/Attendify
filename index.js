@@ -272,6 +272,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                     <div class="right-panel">
                                         <div class="buttons">
                                             <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
+                                            <button onclick="changestatusno()">전체 미출석 변경</button>
                                             <button>출석 통계 확인</button>
                                             <button>출석체크 중단</button>
                                             <button>수업 삭제하기</button>
@@ -286,10 +287,13 @@ app.get("/lecture/:l_code", (req, res) => {
                                     iframe.src = "/attendancelist/${lec_code}/1";
                                     // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
                                     document.getElementById('sessionDropdown').addEventListener('change', function() {
-                                        const selectedSession = this.value;
+                                        let selectedSession = this.value;
                                         const iframe = document.getElementById('attendanceFrame');
                                         iframe.src = "/attendancelist/${lec_code}/" + selectedSession;  // 선택된 회차에 맞는 URL로 변경
                                     });
+                                    function changestatusno() {
+                                        location.href='/nostatus/${lec_code}/' + document.getElementById('sessionDropdown').value;
+                                    }
                                 </script>
                                 `,
                             );
@@ -442,7 +446,7 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                                 <div class="status">
                                                     <img class="circle" id="circle1-${student.a_code}" src="/static/img/none.png">
                                                     <img class="circle" id="circle2-${student.a_code}" src="/static/img/none.png">
-                                                    <span class="present" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">-</span>
+                                                    <span class="present" style="cursor:pointer;" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">-</span>
                                                 </div>
                                             </div>`).join("")}
                                     </div>
@@ -607,11 +611,12 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             x1Array.push(a_code); // x1Array에 a_code 추가
                         } else if (x1Array.includes(a_code) && x2Array.includes(a_code)) {
                             x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
-                            o1Array.push(a_code); // o1Array에 a_code 추가
                             x2Array = x2Array.filter(item => item !== a_code); // x2Array에서 a_code를 제거
-                            o2Array.push(a_code); // o2Array에 a_code 추가
+                            o1Array.push(a_code);
+                            o2Array.push(a_code);
                         } else {
                             o1Array.push(a_code); // x1Array에 a_code 추가
+                            o2Array.push(a_code);
                         }
             
             
@@ -699,7 +704,58 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
         })
 });
 
+app.get("/nostatus/:lec_code/:session", (req, res) => {
+    const lec_code = req.params.lec_code;
+    const session_code = req.params.session;
+    const a_code = req.params.a_code;
+    const db = new sqlite3.Database("./DB.db");
 
+    db.get(
+        `SELECT at_cnt FROM lecture WHERE l_code = ?`,
+        [lec_code],
+        (err, lecRow) => {
+            if (err) return res.status(500).send("서버 오류");
+            if (!lecRow) return res.status(404).send("강좌 없음");
+            const at_cnt = lecRow.at_cnt;
+            if (at_cnt == 2) {
+                if (err) {
+                            console.error("쿼리 실행 오류: ", err.message);
+                            return res.status(500).send("서버 오류가 발생했습니다.");
+                }
+                db.run(
+                    `UPDATE "${lec_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
+                    ["", "", "", "", session_code],
+                    (err) => {
+                        if (err) {
+                            console.error("업데이트 오류: ", err.message);
+                            return res.status(500).send("상태 업데이트에 실패했습니다.");
+                        }
+    
+                        console.log("출석 상태가 업데이트되었습니다.");
+                    }
+                );
+            }
+            if (at_cnt == 1) {
+                if (err) {
+                    console.error("쿼리 실행 오류: ", err.message);
+                    return res.status(500).send("서버 오류가 발생했습니다.");
+                }
+                db.run(
+                    `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
+                    ["", "", "", session_code],
+                    (err) => {
+                        if (err) {
+                            console.error("업데이트 오류: ", err.message);
+                            return res.status(500).send("상태 업데이트에 실패했습니다.");
+                        }
+
+                        console.log("출석 상태가 업데이트되었습니다.");
+                    }
+                );
+            }
+        })
+        return res.send("<script>history.back();</script>");
+});
 
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
