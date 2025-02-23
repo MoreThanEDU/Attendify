@@ -4,6 +4,7 @@ const signupDelete = require("./signup_delete.js");
 const loginLogout = require("./login_logout.js");
 const phoneauth = require("./phoneauth.js");
 const template = require("./main_template.js");
+const otemplate = require("./template.js");
 const ltemplate = require("./lecture_template.js");
 const lecture = require("./lecture.js");
 const bodyParser = require("body-parser");
@@ -123,123 +124,153 @@ app.get("/", (req, res) => {
 });
 
 app.get("/main", (req, res) => {
-    //자신이 진행중인 강좌만 나오도록 수정, 학생페이지 개발
     if (!req.session.is_logined) {
         return res.redirect("/login");
     }
-    if (req.session.t_s === "t") {
-        let db = new sqlite3.Database("./DB.db");
-        db.get(
-            `SELECT a_code FROM Users WHERE id = ?`,
-            [req.session.username],
-            (err, row) => {
-                if (err) {
-                    return console.error(err.message);
-                }
-                if (!row) {
-                    return res
-                        .status(404)
-                        .send("사용자 정보를 찾을 수 없습니다.");
-                }
 
-                const aCode = row.a_code;
+    let db = new sqlite3.Database("./DB.db");
 
-                // a_code에 해당하는 모든 강좌 이름 조회
-                db.all(
-                    `SELECT lec_name, l_code FROM lecture WHERE t_a_code = ?`,
-                    [aCode],
-                    (err, rows) => {
+    db.get(
+        `SELECT bigo FROM Users WHERE id = ?`,
+        [req.session.username],
+        (err, row) => {
+            if (err) {
+                console.error(err.message);
+                return res.status(500).send("서버 오류 발생");
+            }
+
+            if (!row) {
+                console.error("No user found with this ID.");
+                return res.status(404).send("사용자를 찾을 수 없습니다.");
+            }
+
+            const deleted = row.bigo;
+
+            if (deleted !== " ") {
+                var html = otemplate.HTML(
+                    "Attendify",
+                    `
+                    <h2>계정 삭제가 요청되었습니다</h2>
+                    <form action="/cancel-delete" method="get">
+                        <center><input class="btn" type="submit" value="계정 삭제 철회하기"></center>
+                    </form>
+                    <form action="/logout" method="get">
+                        <center><input class="btn" type="submit" value="로그아웃하기"></center>
+                    </form>
+                    <p>본인 요청이 아니라면 비밀번호를 변경해주세요.<br><a href="/">변경하러 가기</a></p>
+                    `
+                );
+                db.close(); // DB 닫기
+                return res.send(html);
+            }
+
+            // 계정 삭제 요청이 없는 경우, 이후 코드 실행
+            if (req.session.t_s === "t") {
+                db.get(
+                    `SELECT a_code FROM Users WHERE id = ?`,
+                    [req.session.username],
+                    (err, row) => {
                         if (err) {
-                            return console.error(err.message);
+                            console.error(err.message);
+                            db.close();
+                            return res.status(500).send("서버 오류 발생");
                         }
 
-                        // 강좌 이름으로 HTML 요소 생성
-                        const courseItems = rows
-                            .map(
-                                (row) =>
-                                    `<div class="course-item" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`,
-                            )
-                            .join("");
-                        const content = `
-                        <div class="container">
-                            <div class="title">진행중인 강좌</div>
-                            <div class="course-list">
-                                ${courseItems}
-                            </div>
-                        </div>`;
-
-                        // HTML 템플릿에 내용 추가 후 응답
-                        const thtml = template.HTML(
-                            req.session.username,
-                            content,
-                        );
-                        res.send(thtml);
-                    },
-                );
-            },
-        );
-    } else {
-        let db = new sqlite3.Database("./DB.db");
-        db.get(
-            `SELECT a_code FROM Users WHERE id = ?`,
-            [req.session.username],
-            (err, row) => {
-                if (err) {
-                    return console.error(err.message);
-                }
-                if (!row) {
-                    return res
-                        .status(404)
-                        .send("사용자 정보를 찾을 수 없습니다.");
-                }
-
-                const a_code = row.a_code;
-
-                // a_code에 해당하는 모든 강좌 이름 조회
-                db.all(
-                    `SELECT lec_name, l_code FROM lecture WHERE s_a_code LIKE ?`,
-                    [`%${a_code}%`],
-                    (err, rows) => {
-                        if (err) {
-                            return console.error(err.message);
+                        if (!row) {
+                            db.close();
+                            return res.status(404).send("사용자 정보를 찾을 수 없습니다.");
                         }
 
-                        // 강좌 이름으로 HTML 요소 생성
-                        const courseItems = rows
-                            .map(
-                                (row) =>
-                                    `<div class="course-item">${row.lec_name}</div>`,
-                            )
-                            .join("");
-                        console.log("a_code:", a_code);
-                        console.log("rows:", rows);
-                        console.log("coureseItems:", courseItems);
-                        const content = `
-                        <div class="container" style="display: flex; padding: 20px; gap: 20px">
-                            <div class="left-panel">
-                                <div class="title">수강중인 강좌</div>
-                                <div class="course-list">${courseItems}</div>
-                            </div>
-                            <div class="right-panel">
-                                <div class="buttons">
-                                    <button>출석체크하기</button>
-                                    <button type = "button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
-                                </div>
-                            </div>
-                        </div>`;
+                        const aCode = row.a_code;
 
-                        // HTML 템플릿에 내용 추가 후 응답
-                        const shtml = template.HTML(
-                            req.session.username,
-                            content,
+                        db.all(
+                            `SELECT lec_name, l_code FROM lecture WHERE t_a_code = ?`,
+                            [aCode],
+                            (err, rows) => {
+                                db.close(); // DB 닫기
+                                if (err) {
+                                    console.error(err.message);
+                                    return res.status(500).send("서버 오류 발생");
+                                }
+
+                                const courseItems = rows
+                                    .map(
+                                        (row) =>
+                                            `<div class="course-item" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
+                                    )
+                                    .join("");
+
+                                const content = `
+                                <div class="container">
+                                    <div class="title">진행중인 강좌</div>
+                                    <div class="course-list">
+                                        ${courseItems}
+                                    </div>
+                                </div>`;
+
+                                const thtml = template.HTML(req.session.username, content);
+                                return res.send(thtml);
+                            }
                         );
-                        res.send(shtml);
-                    },
+                    }
                 );
-            },
-        );
-    }
+            } else {
+                db.get(
+                    `SELECT a_code FROM Users WHERE id = ?`,
+                    [req.session.username],
+                    (err, row) => {
+                        if (err) {
+                            console.error(err.message);
+                            db.close();
+                            return res.status(500).send("서버 오류 발생");
+                        }
+
+                        if (!row) {
+                            db.close();
+                            return res.status(404).send("사용자 정보를 찾을 수 없습니다.");
+                        }
+
+                        const a_code = row.a_code;
+
+                        db.all(
+                            `SELECT lec_name, l_code FROM lecture WHERE s_a_code LIKE ?`,
+                            [`%${a_code}%`],
+                            (err, rows) => {
+                                db.close(); // DB 닫기
+                                if (err) {
+                                    console.error(err.message);
+                                    return res.status(500).send("서버 오류 발생");
+                                }
+
+                                const courseItems = rows
+                                    .map((row) => `<div class="course-item">${row.lec_name}</div>`)
+                                    .join("");
+
+                                const content = `
+                                <div class="container" style="display: flex; padding: 20px; gap: 20px">
+                                    <div class="left-panel">
+                                        <div class="title">수강중인 강좌</div>
+                                        <div class="course-list">${courseItems}</div>
+                                    </div>
+                                    <div class="right-panel">
+                                        <div class="buttons">
+                                            <button>출석체크하기</button>
+                                            <button type="button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
+                                        </div>
+                                    </div>
+                                </div>`;
+
+                                const shtml = template.HTML(req.session.username, content);
+                                return res.send(shtml);
+                            }
+                        );
+                    }
+                );
+            }
+        }
+    );
 });
+
 
 app.get("/generateqrcode", (req, res) => {
     generateQRcode();
@@ -355,6 +386,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                     <div class="right-panel">
                                         <div class="buttons">
                                             <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
+                                            <button onclick="changestatusno()">전체 미출석 변경</button>
                                             <button>출석 통계 확인</button>
                                             <button id='attendify' onclick="toggle();">출석체크 시작</button>
                                             <button>수업 삭제하기</button>
@@ -371,19 +403,10 @@ app.get("/lecture/:l_code", (req, res) => {
                                     iframe.src = "/attendancelist/${lec_code}/1";
                                     // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
                                     document.getElementById('sessionDropdown').addEventListener('change', function() {
-                                        const selectedSession = this.value;
+                                        let selectedSession = this.value;
                                         const iframe = document.getElementById('attendanceFrame');
                                         iframe.src = "/attendancelist/${lec_code}/" + selectedSession;  // 선택된 회차에 맞는 URL로 변경
                                     });
-                                    function toggle() {
-                                        const attendify = document.getElementById('attendify');
-                                        if (attendify.innerText === "출석체크 시작") {
-                                            attendify.innerText = "출석체크 중단";
-                                            location.href="/generateqrcode";
-                                        } else {
-                                            attendify.innerText = "출석체크 시작";
-                                        }
-                                    }
                                 </script>
                                 `,
                             );
@@ -536,7 +559,7 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                                 <div class="status">
                                                     <img class="circle" id="circle1-${student.a_code}" src="/static/img/none.png">
                                                     <img class="circle" id="circle2-${student.a_code}" src="/static/img/none.png">
-                                                    <span class="present" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">-</span>
+                                                    <span class="present" style="cursor:pointer;" id="status-${student.a_code}" onclick="location.href='/changestatus/${lec_code}/${sessionNumber}/${student.a_code}'">-</span>
                                                 </div>
                                             </div>`).join("")}
                                     </div>
@@ -701,11 +724,12 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             x1Array.push(a_code); // x1Array에 a_code 추가
                         } else if (x1Array.includes(a_code) && x2Array.includes(a_code)) {
                             x1Array = x1Array.filter(item => item !== a_code); // x1Array에서 a_code를 제거
-                            o1Array.push(a_code); // o1Array에 a_code 추가
                             x2Array = x2Array.filter(item => item !== a_code); // x2Array에서 a_code를 제거
-                            o2Array.push(a_code); // o2Array에 a_code 추가
+                            o1Array.push(a_code);
+                            o2Array.push(a_code);
                         } else {
                             o1Array.push(a_code); // x1Array에 a_code 추가
+                            o2Array.push(a_code);
                         }
             
             
@@ -793,7 +817,58 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
         })
 });
 
+app.get("/nostatus/:lec_code/:session", (req, res) => {
+    const lec_code = req.params.lec_code;
+    const session_code = req.params.session;
+    const a_code = req.params.a_code;
+    const db = new sqlite3.Database("./DB.db");
 
+    db.get(
+        `SELECT at_cnt FROM lecture WHERE l_code = ?`,
+        [lec_code],
+        (err, lecRow) => {
+            if (err) return res.status(500).send("서버 오류");
+            if (!lecRow) return res.status(404).send("강좌 없음");
+            const at_cnt = lecRow.at_cnt;
+            if (at_cnt == 2) {
+                if (err) {
+                            console.error("쿼리 실행 오류: ", err.message);
+                            return res.status(500).send("서버 오류가 발생했습니다.");
+                }
+                db.run(
+                    `UPDATE "${lec_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
+                    ["", "", "", "", session_code],
+                    (err) => {
+                        if (err) {
+                            console.error("업데이트 오류: ", err.message);
+                            return res.status(500).send("상태 업데이트에 실패했습니다.");
+                        }
+    
+                        console.log("출석 상태가 업데이트되었습니다.");
+                    }
+                );
+            }
+            if (at_cnt == 1) {
+                if (err) {
+                    console.error("쿼리 실행 오류: ", err.message);
+                    return res.status(500).send("서버 오류가 발생했습니다.");
+                }
+                db.run(
+                    `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
+                    ["", "", "", session_code],
+                    (err) => {
+                        if (err) {
+                            console.error("업데이트 오류: ", err.message);
+                            return res.status(500).send("상태 업데이트에 실패했습니다.");
+                        }
+
+                        console.log("출석 상태가 업데이트되었습니다.");
+                    }
+                );
+            }
+        })
+        return res.send("<script>history.back();</script>");
+});
 
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`);
