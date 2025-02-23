@@ -452,7 +452,7 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                             const a_code = item.dataset.aCode;
                                             let circle1 = "none";
                                             let circle2 = "none";
-                                            let present = "-";
+                                            let present = "미출석";
     
                                             if (data.o_1.includes(a_code)) circle1 = "O";
                                             else if (data.x_1.includes(a_code)) circle1 = "X";
