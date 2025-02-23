@@ -89,7 +89,7 @@ router.post("/lec_create", (req, res) => {
     });
 
     if (at_cnt == 1) {
-        const query = `CREATE TABLE IF NOT EXISTS ${l_code} (
+        const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
             session TEXT,
             attend TEXT,
             late TEXT,
@@ -123,7 +123,7 @@ router.post("/lec_create", (req, res) => {
     }
 
     if (at_cnt == 2) {
-        const query = `CREATE TABLE IF NOT EXISTS ${l_code} (
+        const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
             session TEXT,
             o_1 TEXT,
             x_1 TEXT,
