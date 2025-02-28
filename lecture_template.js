@@ -140,7 +140,41 @@ module.exports = {
                         background: #bbb;
                     }
 
-                    
+                    .modal-overlay {
+                        display: none;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.5);
+                        justify-content: center;
+                        align-items: center;
+                    }
+                    /* 모달 창 스타일 */
+                    .modal {
+                        background: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        text-align: center;
+                        width: 300px;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                    }
+                    .modal button {
+                        margin: 10px;
+                        padding: 10px 20px;
+                        border: none;
+                        cursor: pointer;
+                        border-radius: 5px;
+                    }
+                    .confirm {
+                        background-color: #4CAF50;
+                        color: white;
+                    }
+                    .cancel {
+                        background-color: #f44336;
+                        color: white;
+                    }
                 </style>
             </head>
             <body>
