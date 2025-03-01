@@ -517,40 +517,6 @@ app.get("/qrcode/:l_code/:session/:randomstring/:cha", async (req, res) => {
     const random = req.params.randomstring;
     const cha = req.params.cha;
     const db = new sqlite3.Database("./DB.db");
-    db.get(
-        `SELECT at_cnt FROM lecture WHERE l_code = ?`,
-        [l_code],
-        (err, lecRow) => {
-            if (err) return res.status(500).send("서버 오류");
-            if (!lecRow) return res.status(404).send("강좌 없음");
-            const at_cnt = lecRow.at_cnt;
-            if (at_cnt == 2) {
-                db.run(
-                    `UPDATE "${l_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
-                    ["", "", "", "", session],
-                    (err) => {
-                        if (err) {
-                            console.error("업데이트 오류: ", err.message);
-                            return res.status(500).send("상태 업데이트에 실패했습니다.");
-                        }
-    
-                        console.log("미출석으로 변경 완료됨");
-                    }
-                );
-            }
-            if (at_cnt == 1) {
-                db.run(
-                    `UPDATE "${l_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                    ["", "", "", session],
-                    (err) => {
-                        if (err) {
-                            console.error("업데이트 오류: ", err.message);
-                            return res.status(500).send("상태 업데이트에 실패했습니다.");
-                        }
-                    }
-                );
-            }
-        })
     QRCode.toDataURL(random,  {width: 450}, (err, url) => {
         const data = url.replace(/.*,/, "");
         const img = new Buffer.from(data, "base64");
@@ -1105,7 +1071,7 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
                 }
                 db.run(
                     `UPDATE "${lec_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
-                    ["", "", "", "", session_code],
+                    ["/", "/", "/", "/", session_code],
                     (err) => {
                         if (err) {
                             console.error("업데이트 오류: ", err.message);
@@ -1123,7 +1089,7 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
                 }
                 db.run(
                     `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                    ["", "", "", session_code],
+                    ["/", "/", "/", session_code],
                     (err) => {
                         if (err) {
                             console.error("업데이트 오류: ", err.message);

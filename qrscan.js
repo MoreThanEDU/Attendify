@@ -77,7 +77,7 @@ module.exports = {
                                         device.label.includes("전면")
                                     );
 
-                                    let selectedCamera = frontCamera ? frontCamera.id : devices[1].id; // 없으면 기본 카메라 선택
+                                    let selectedCamera = frontCamera ? frontCamera.id : devices[0].id; // 없으면 기본 카메라 선택
                                     
                                     console.log("📷 선택된 카메라:", selectedCamera);
 
