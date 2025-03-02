@@ -236,68 +236,55 @@ router.get("/enroll-lecture", (req, res) => {
         `,
             ""
         );
-        res.send(html);
+        return res.send(html);
     } else {
-        res.send(
+        return res.send(
             '<script>alert("잘못된 접근입니다.");history.back();</script>',
         );
     }
 });
 
 router.post("/lec_enroll", (req, res) => {
-    const l_code = req.body;
-    const a_code = req.session.a_code
+    const l_code = req.body.lec_code;
+    const a_code = req.session.a_code;
     console.log(l_code);
-    db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+    db.all("SELECT s_a_code FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
         console.log(row);
         if (err) {
             console.error("에러 발생:", err);
-        } else if (row) {
-            db.run("UPDATE lecture SET s_a_code = ? WHERE l_code = ?", [a_code, l_code], function (err) {
-                if (err) {
-                    console.error("에러 발생:", err);
-                } else {
-                    console.log("수강 신청 성공!");
-                }
-            });
-            return res.send(
-                "<script>location.href='/main';</script>",
-            );
+        } else if (row.length > 0) {
+            let students = row[0].s_a_code;
+            let students_array = students.split("/");
+            if (students_array.includes(a_code) === false) {
+                students_array.push(a_code);
+                students = students_array.join("/")
+
+                db.run("UPDATE lecture SET s_a_code = ? WHERE l_code = ?", [students, l_code], function (err) {
+                    if (err) {
+                        console.error("에러 발생:", err);
+                    } else {
+                        console.log("수강 신청 성공!");
+                        return res.send(
+                            "<script>location.href='/main';</script>",
+                        );
+                    }
+                });
+            } else {
+                console.log("수강 신청 실패!");
+                return res.send(
+                    "<script>alert('이미 수강중인 강좌입니다.');location.href='/enroll-lecture';</script>",
+                );
+            }
         } else {
             console.log("수강 신청 실패!");
             return res.send(
-                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+                "<script>alert('강좌가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
             );
         }
+        
     });
 });
 
-router.get("/jongkang/:lec_code", (req, res) => {
-    const l_code = req.params.lec_code;
-    const a_code = req.session.a_code;
-    console.log(l_code);
-    db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
-        console.log(row);
-        if (err) {
-            console.error("에러 발생:", err);
-        } else if (row) {
-            db.run("UPDATE lecture SET end = ? WHERE l_code = ?", ["delete", l_code], function (err) {
-                if (err) {
-                    console.error("에러 발생:", err);
-                } else {
-                    console.log("수강 신청 성공!");
-                }
-            });
-            return res.send(
-                "<script>alert('종강 처리되었습니다');location.href='/main';</script>",
-            );
-        } else {
-            console.log("수강 신청 실패!");
-            return res.send(
-                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
-            );
-        }
-    });
-});
+//test
 
 module.exports = router;
