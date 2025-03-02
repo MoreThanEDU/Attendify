@@ -26,7 +26,7 @@ router.get("/create-lecture", (req, res) => {
             "lecture",
             `
         <h2>강좌 생성</h2>
-        <form action="/lec_create" method="post">
+        <form action="/lec_enroll" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
             <label><b>출석체크 횟수</b></label>
             <br>
@@ -217,7 +217,26 @@ router.get("/newsession/:lec_code", (req, res) => {
     });
 });
 
-
+router.get("/enroll-lecture", (req, res) => {
+    if (req.session.t_s === "s") {
+        var html = template.HTML(
+            "lecture",
+            `
+        <h2>수강 신청</h2>
+        <form action="/lec_enroll" method="post">
+            <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
+            <input class="btn" type="submit" value="강좌 참여하기"></center>
+        </form>
+        `,
+            ""
+        );
+        return res.send(html);
+    } else {
+        return res.send(
+            '<script>alert("잘못된 접근입니다.");history.back();</script>',
+        );
+    }
+});
 
 router.post("/lec_enroll", (req, res) => {
     const l_code = req.body.lec_code;
