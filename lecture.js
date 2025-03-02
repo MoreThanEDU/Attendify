@@ -177,7 +177,7 @@ router.get("/newsession/:lec_code", (req, res) => {
                 if (at_cnt == 1) {
                     db.run(
                         `INSERT INTO ${l_code} (session, attend, late, absent) VALUES (?, ?, ?, ?)`,
-                        [last, "", "", ""],
+                        [last, "/", "/", "/"],
                         (err) => {
                             if (err) {
                                 console.error(err);
@@ -187,7 +187,7 @@ router.get("/newsession/:lec_code", (req, res) => {
                             } else {
                                 console.log("데이터 삽입 성공!");
                                 return res.send(
-                                    "<script>history.back();</script>",
+                                    "<script>alert('새로고침 후 반영됩니다.');history.back();</script>",
                                 );
                             }
                         },
@@ -197,7 +197,7 @@ router.get("/newsession/:lec_code", (req, res) => {
                 if (at_cnt == 2) {
                     db.run(
                         `INSERT INTO ${l_code} (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
-                        [last, "", "", "", ""],
+                        [last, "/", "/", "/", "/"],
                         (err) => {
                             if (err) {
                                 console.error(err);
@@ -206,7 +206,7 @@ router.get("/newsession/:lec_code", (req, res) => {
                                 );
                             } else {
                                 return res.send(
-                                    "<script>history.back();</script>",
+                                    "<script>alert('새로고침 후 반영됩니다.');history.back();</script>",
                                 );
                             }
                         },
@@ -223,7 +223,7 @@ router.get("/enroll-lecture", (req, res) => {
             "lecture",
             `
         <h2>수강 신청</h2>
-        <form action="/lec_create" method="post">
+        <form action="/lec_enroll" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
             <label><b>출석체크 횟수</b></label>
             <div class="radio">
@@ -272,6 +272,32 @@ router.post("/lec_enroll", (req, res) => {
     });
 });
 
-//test
+router.get("/jongkang/:lec_code", (req, res) => {
+    const l_code = req.params.lec_code;
+    const a_code = req.session.a_code;
+    console.log(l_code);
+    db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+        console.log(row);
+        if (err) {
+            console.error("에러 발생:", err);
+        } else if (row) {
+            db.run("UPDATE lecture SET end = ? WHERE l_code = ?", ["delete", l_code], function (err) {
+                if (err) {
+                    console.error("에러 발생:", err);
+                } else {
+                    console.log("수강 신청 성공!");
+                }
+            });
+            return res.send(
+                "<script>alert('종강 처리되었습니다');location.href='/main';</script>",
+            );
+        } else {
+            console.log("수강 신청 실패!");
+            return res.send(
+                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+            );
+        }
+    });
+});
 
 module.exports = router;

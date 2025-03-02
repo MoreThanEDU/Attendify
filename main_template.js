@@ -70,6 +70,16 @@ module.exports = {
                         cursor: pointer;
                         transition: 0.3s;
                     }
+                    .course-item-done {
+                        background-color:rgb(177, 177, 177);
+                        padding: 15px;
+                        border-radius: 8px;
+                        color: white;
+                        font-weight: bold;
+                        text-align: left;
+                        cursor: pointer;
+                        transition: 0.3s;
+                    }
             
                     .course-item:hover {
                         opacity: 0.8;
