@@ -175,7 +175,31 @@ module.exports = {
                         background-color: #f44336;
                         color: white;
                     }
-                </style>
+                    .code-box {
+                        font-size: 20px;
+                        font-weight: bold;
+                        padding: 12px 24px;
+                        background: white;
+                        border-radius: 16px;
+                        border: 3px solid transparent;
+                        background-clip: padding-box;
+                        width: 50px;
+                        position: relative;
+                        text-align: center;
+                    }
+
+                    .code-box::before {
+                        content: "";
+                        position: absolute;
+                        top: -3px;
+                        left: -3px;
+                        right: -3px;
+                        bottom: -3px;
+                        border-radius: 19px;
+                        background: linear-gradient(45deg, #ff7eb3, #ff758c, #ff7eb3);
+                        z-index: -1;
+                    }
+            </style>
             </head>
             <body>
                 <div class="header">

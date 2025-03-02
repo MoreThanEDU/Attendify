@@ -223,7 +223,7 @@ router.get("/enroll-lecture", (req, res) => {
             "lecture",
             `
         <h2>수강 신청</h2>
-        <form action="/lec_create" method="post">
+        <form action="/lec_enroll" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
             <label><b>출석체크 횟수</b></label>
             <div class="radio">
