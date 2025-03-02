@@ -25,17 +25,10 @@ router.get("/create-lecture", (req, res) => {
         var html = template.HTML(
             "lecture",
             `
-        <h2>강좌 생성</h2>
-        <form action="/lec_create" method="post">
+        <h2>강좌 참여</h2>
+        <form action="/lec_enroll" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
-            <label><b>출석체크 횟수</b></label>
-            <br>
-            <div class="radio">
-                <label><input type="radio" name="at_cnt" value="1" required> 1회</label>
-                <label><input type="radio" name="at_cnt" value="2" required> 2회</label>
-            </div>
-            <br>
-            <center><input class="btn" type="submit" value="강좌 생성하기"></center>
+            <center><input class="btn" type="submit" value="강좌 참여하기"></center>
         </form>
         `,
             "",
