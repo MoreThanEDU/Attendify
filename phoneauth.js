@@ -1,12 +1,30 @@
 const express = require('express');
+const session = require("express-session");
 const Redis = require('ioredis');
 const bodyParser = require('body-parser');
 const coolsms = require('coolsms-node-sdk').default;
 const path = require('path');
 const template = require('./template.js');
 var router = express.Router();
+const sqlite = require('sqlite3').verbose(); // sqlite3 모듈 사용
 const redis = new Redis();
 const PORT = 8080;
+
+router.use(
+    session({
+        secret: process.env.SESSION_SECRET, // 환경 변수에서 키를 가져옴
+        resave: false,
+        saveUninitialized: true,
+        cookie: {
+            httpOnly: true,
+            secure: false,
+            sameSite: "strict",
+            resave: true,
+        },
+    }),
+);
+
+const db = new sqlite.Database('./DB.db');
 
 router.use(bodyParser.urlencoded({ extended: true }));
 router.use(bodyParser.json());
@@ -17,17 +35,10 @@ const REQUEST_LIMIT = 2; // 5분에 2번
 const TOTAL_LIMIT = 10; // 총 10번
 
 const messageService = new coolsms('NCSWP3E1RLJHQG9Q', 'PW1E8H0L8C2AFDNCZ5H66LIM5PPK8XFX');
-
-
-router.use((req, res, next) => {
-    req.clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    next();
-});
-
 router.get('/account/find', (req, res) => {
     var html = template.HTML('findaccount', `
     <h1>문자 인증 시스템</h1>
-    <form action="/request-code" method="POST">
+    <form action="/request-code-find" method="POST">
         <label for="phone">전화번호 입력:</label>
         <input class="login" type="text" id="phone" name="phone" placeholder="01012345678" required>
         <button class="btn" type="submit">인증번호 받기</button>
@@ -39,7 +50,7 @@ router.get('/account/find', (req, res) => {
         <button class="btn" type="submit">인증하기</button>
     </form>
     `, '')
-    res.send(html);
+    return res.send(html);
 });
 
 router.get('/account/success', (req, res) => {
@@ -58,8 +69,10 @@ router.get('/account/blocked', (req, res) => {
     res.send(html);
 });
 
-router.post('/request-code', async (req, res) => {
+router.post('/request-code-find', async (req, res) => {
+    console.log(req.sessionID);
     const phone = req.body.phone;
+    console.log(phone);
 
     // Redis 키
     const codeKey = `code:${phone}`;
@@ -79,7 +92,7 @@ router.post('/request-code', async (req, res) => {
     await redis.expire(totalKey, 7 * 24 * 60 * 60); // 총 횟수 일주일 유지
 
     if (totalAttempts > 10) {
-        await redis.set(blockKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
+        await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
         return res.redirect('/account/blocked');
     }
 
@@ -87,29 +100,38 @@ router.post('/request-code', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000); // 6자리 인증번호
     await redis.set(codeKey, code, 'EX', 300); // 인증번호 5분 유지
 
-	req.session.phone = phone;
-	
-    try {
-        await messageService.sendOne({
-            to: phone,
-            from: '01088501571',
-            text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('문자 발송 실패!');
-    }
+    req.session.phone = phone;
+    console.log(req.session.phone);
+
+    req.session.save((err) => {
+        try {
+            messageService.sendOne({
+                to: phone,
+                from: '01088501571',
+                text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
+            });
+            console.log(req.session.phone);
+        } catch (error) {
+            console.error(error);
+            res.status(500).send('문자 발송 실패!');
+        }
+    })
+    console.log(req.session.phone);
 });
 
 // 2. 인증 코드 확인 처리
 router.post('/verify-code', async (req, res) => {
-	const code = req.body.code;
+    const db = new sqlite.Database("./DB.db");
+    console.log(req.sessionID);
+    const code = req.body.code;
 
     // 세션에서 전화번호 가져오기
     const phone = req.session.phone;
+    console.log(req.session.phone);
     if (!phone) {
         return res.status(400).send('전화번호 세션이 만료되었습니다. 다시 인증해 주세요.');
     }
+
     // Redis에서 인증번호 확인
     const savedCode = await redis.get(`code:${phone}`);
     if (!savedCode) {
@@ -117,11 +139,55 @@ router.post('/verify-code', async (req, res) => {
     }
 
     if (savedCode === code) {
-        return res.redirect('/account/success');
+
+        if (user) {
+            // 비밀번호 재설정 페이지로 리다이렉트
+            req.session.userId = user.id;
+            return res.redirect(`/account/reset-password`);
+        } else {
+            return res.status(404).send('해당 전화번호에 해당하는 계정을 찾을 수 없습니다.');
+        }
     } else {
         return res.status(400).send('인증번호가 일치하지 않습니다.');
     }
 });
 
+// 비밀번호 재설정 페이지
+router.get('/account/reset-password', (req, res) => {
+    if (!req.session.userId) {
+        return res.redirect('/account/find');
+    }
+
+    var html = template.HTML('reset-password', `
+    <h1>비밀번호 재설정</h1>
+    <form action="/account/reset-password" method="POST">
+        <label for="new-password">새 비밀번호:</label>
+        <input class="login" type="password" id="new-password" name="new-password" required>
+        <br>
+        <button class="btn" type="submit">비밀번호 변경</button>
+    </form>
+    `, '');
+    res.send(html);
+});
+
+// 비밀번호 재설정 처리
+router.post('/account/reset-password', (req, res) => {
+    const newPassword = req.body['new-password'];
+    const userId = req.session.userId;
+
+    if (!userId) {
+        return res.status(400).send('사용자가 인증되지 않았습니다.');
+    }
+
+    // 사용자의 비밀번호 업데이트
+    const user = users.find(user => user.id === userId);
+    if (user) {
+        user.password = newPassword;
+        req.session.destroy();
+        return res.redirect('/account/success');
+    } else {
+        return res.status(404).send('사용자를 찾을 수 없습니다.');
+    }
+});
 
 module.exports = router;

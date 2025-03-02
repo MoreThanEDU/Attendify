@@ -70,6 +70,16 @@ module.exports = {
                         cursor: pointer;
                         transition: 0.3s;
                     }
+                    .course-item-done {
+                        background-color:rgb(177, 177, 177);
+                        padding: 15px;
+                        border-radius: 8px;
+                        color: white;
+                        font-weight: bold;
+                        text-align: left;
+                        cursor: pointer;
+                        transition: 0.3s;
+                    }
             
                     .course-item:hover {
                         opacity: 0.8;
@@ -142,9 +152,10 @@ module.exports = {
                 </style>
             </head>
             <body>
-            
                 <div class="header">
-                    <img style="width: 225px;" src="/static/img/attendify_logo_white.png">
+                    <a href="/main">
+                        <img style="width: 225px;" src="/static/img/attendify_logo_white.png">
+                    </a>
                     <div class="admin">
                         ${username}님
                         <div class="dropdown-menu">
@@ -153,7 +164,6 @@ module.exports = {
                         </div>
                     </div>
                 </div>
-
                 ${body}
             </body>
             </html>

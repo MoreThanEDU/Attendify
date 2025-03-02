@@ -42,7 +42,7 @@ router.post("/login", (req, res) => {
                     req.session.is_logined = true;
                     req.session.username = id;
                     req.session.a_code = results[0].a_code;
-                    req.session.t_s = results[0].t_s; // t_s 값을 가져와서 세션에 저장
+                    req.session.t_s = results[0].t_s; 
                     res.send(
                         '<script>document.location.href = "/main";</script>',
                     );
