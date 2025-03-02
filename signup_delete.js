@@ -184,10 +184,10 @@ router.get("/delete-account", (req, res) => {
     const html = template.HTML(
         "delete-account",
         `
-        <h2>계정을 삭제하시려면 비밀번호를 입력해주세요</h2>
+        <h2>비밀번호를 입력해주세요</h2>
         <form action="/delete-account" method="post">
             <p><input class="login" type="password" name="password" placeholder="비밀번호 입력" required></p>
-            <p><button class="btn" type="submit">계정이 삭제됩니다.</button></p>
+            <p><button class="btn" type="submit">유예 기간 후 계정이 자동 삭제되며,<br>복구할 수 없음을 인지하고 있습니다.</button></p>
         </form>
     `,
         "",
@@ -222,7 +222,7 @@ router.post("/delete-account", (req, res) => {
         
         const now = new Date().toISOString();
         db.run(
-            "UPDATE Users SET delete_requested_at = ? WHERE id = ?",
+            "UPDATE Users SET bigo = ? WHERE id = ?",
             [now, userId],
             (err) => {
                 if (err) {
@@ -251,7 +251,7 @@ router.get("/cancel-delete", (req, res) => {
 
     const db = new sqlite3.Database("./DB.db");
     db.run(
-        "UPDATE Users SET delete_requested_at = NULL WHERE id = ?",
+        "UPDATE Users SET bigo = ' ' WHERE id = ?",
         [userId],
         (err) => {
             if (err) {

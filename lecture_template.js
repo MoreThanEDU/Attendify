@@ -117,9 +117,8 @@ module.exports = {
                     }
             
                     .qr-code {
-                        width: 200px;
-                        height: 200px;
-                        background: #fff;
+                        width: 50%;
+                        height: 50%;
                         margin-top: 20px;
                     }
             
