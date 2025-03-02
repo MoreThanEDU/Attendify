@@ -279,6 +279,32 @@ router.post("/lec_enroll", (req, res) => {
     });
 });
 
-//test
+router.get("/jongkang/:lec_code", (req, res) => {
+    const l_code = req.params.lec_code;
+    const a_code = req.session.a_code;
+    console.log(l_code);
+    db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+        console.log(row);
+        if (err) {
+            console.error("에러 발생:", err);
+        } else if (row) {
+            db.run("UPDATE lecture SET end = ? WHERE l_code = ?", ["delete", l_code], function (err) {
+                if (err) {
+                    console.error("에러 발생:", err);
+                } else {
+                    console.log("수강 신청 성공!");
+                }
+            });
+            return res.send(
+                "<script>alert('종강 처리되었습니다');location.href='/main';</script>",
+            );
+        } else {
+            console.log("수강 신청 실패!");
+            return res.send(
+                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+            );
+        }
+    });
+});
 
 module.exports = router;
