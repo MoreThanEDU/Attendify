@@ -58,9 +58,9 @@ router.get("/signup", (req, res) => {
             <input class="login" type="text" name="phonenumber" placeholder="전화번호" required>
             <input class="btn" style="width: 10%;" type="submit" value="인증코드 전송"></button>
         </div>
-        <input class="login" type="text" name="verificationCode" placeholder="인증코드 입력" required>
     </form>
     <form action="/signup" method="post">
+        <input class="login" type="text" name="verificationCode" placeholder="인증코드 입력" required>
         <input class="login" type="text" name="name" placeholder="이름" required>
         <input class="login" type="text" name="id" placeholder="아이디" required>
         <input class="login" type="password" name="password" placeholder="비밀번호" required>

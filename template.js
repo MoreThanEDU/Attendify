@@ -99,6 +99,7 @@ module.exports = {
 
                   label {
                       font-size: 16px;
+                      text-align: left;
                   }
 
                   select {
