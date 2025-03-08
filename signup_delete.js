@@ -124,25 +124,24 @@ router.post("/request-code", async (req, res) => {
             return res.send('<script>alert("요청이 너무 많습니다. 나중에 다시 시도하세요.");history.back();</script>');
         }
 
-        //인증번호 생성 및 Redis 저장
-        const code = Math.floor(100000 + Math.random() * 900000);
-        await redis.set(codeKey, code, "EX", 300); // 5분 유효
-        req.session.phone = phone;
-
-        //인증번호 문자 전송
-        await messageService.sendOne({
-            to: phone,
-            from: "01088501571",
-            text: `[모어댄에듀]\n가입 시 사용되는 인증 코드는 ${code}입니다. 절대 외부로 유출하지 마세요.`,
-        });
-
-        return res.send('<script>alert("인증 코드가 전송되었습니다.");history.back();</script>');
-    } catch (error) {
-        console.error("오류 발생:", error);
-        return res.send('<script>alert("서버 오류 발생! 다시 시도하세요.");history.back();</script>');
-    } finally {
-        db.close(); //DB 연결 닫기 (메모리 누수 방지)
-    }
+    // 인증번호 생성 및 저장
+    const code = Math.floor(100000 + Math.random() * 900000);
+    await redis.set(codeKey, code, "EX", 300); // 5분 유효
+    req.session.phone = phone;
+    req.session.save((err) => {
+        try {
+            messageService.sendOne({
+                to: phone,
+                from: '01088501571',
+                text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
+            });
+            console.log(req.session.phone);
+        } catch (error) {
+            console.error(error);
+            res.status(500).send('문자 발송 실패!');
+        }
+    })
+    console.log(req.session.phone);
 });
     
 
