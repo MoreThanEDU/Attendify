@@ -78,8 +78,11 @@ router.get("/signup", (req, res) => {
 // 인증번호 요청
 router.post("/request-code", async (req, res) => {
     const phone = req.body.phonenumber;
+    const ipv6 = req.socket.remoteAddress;
+    const clientIp = ipv6.includes('::ffff:') ? ipv6.split('::ffff:')[1] : ipv6;
+
     const codeKey = `code:${phone}`;
-    const rateLimitKey = `rate:${phone}`;
+    const rateLimitKey = `rate:${clientIp}`;
     let db = new sqlite3.Database("./DB.db");
     db.get("SELECT * FROM Users WHERE pn = ?", [phone], (err, row) => {
         if (err) {
@@ -97,13 +100,20 @@ router.post("/request-code", async (req, res) => {
     // 요청 제한 확인
     const rateCount = await redis.incr(rateLimitKey);
     if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
-    if (rateCount > REQUEST_LIMIT) {
+    if (rateCount > 2) {
         return res.send(
-            '<script>alert("요청이 너무 많습니다. 나중에 다시 시도하세요.");history.back();</script>',
+            '<script>alert("요청이 너무 많습니다. 5분 후에 다시 시도하세요.");history.back();</script>',
         );
     }
 
-    // 인증번호 생성 및 저장
+    const totalKey = `total:${clientIp}`;
+    const totalAttempts = await redis.incr(totalKey);
+
+    if (totalAttempts > 10) {
+        await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
+        return res.redirect('/account/blocked');
+    }
+
     const code = Math.floor(100000 + Math.random() * 900000);
     await redis.set(codeKey, code, "EX", 300); // 5분 유효
     req.session.phone = phone;
@@ -117,7 +127,7 @@ router.post("/request-code", async (req, res) => {
             console.log(req.session.phone);
         } catch (error) {
             console.error(error);
-            res.status(500).send('문자 발송 실패!');
+            res.status(500).send('<script>alert("서버 오류입니다. 고객센터에 문의해 주세요.");history.back();</script>');
         }
     })
     console.log(req.session.phone);

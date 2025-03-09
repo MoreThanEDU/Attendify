@@ -35,6 +35,11 @@ router.use(express.static(path.join(__dirname, 'public')));
 const REQUEST_LIMIT = 2; // 5분에 2번
 const TOTAL_LIMIT = 10; // 총 10번
 
+function vali_pw(pw) {
+    const pwRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*-_])[A-Za-z\d!@#$%^&*-_]{8,20}$/; // 영문 + 숫자 + 특수문자 포함 8~20자
+    return pwRegex.test(pw);
+}
+
 const messageService = new coolsms('NCSWP3E1RLJHQG9Q', 'PW1E8H0L8C2AFDNCZ5H66LIM5PPK8XFX');
 router.get('/account/find', (req, res) => {
     var html = template.HTML('findaccount', `
@@ -54,25 +59,27 @@ router.get('/account/find', (req, res) => {
     return res.send(html);
 });
 
-router.get('/account/success', (req, res) => {
+router.get('/account/success/:id', (req, res) => {
+    const id = req.params.id;
     var html = template.HTML('success', `
-    <h1>인증 성공!</h1>
-    <p>인증이 완료되었습니다. 감사합니다.</p>
+    <h1>비밀번호 재설정 성공!</h1>
+    <p>아이디: ${id}</p>
     `, '')
     res.send(html);
 });
 
 router.get('/account/blocked', (req, res) => {
     var html = template.HTML('success', `
-    <h1>접근 차단</h1>
-    <p>요청이 너무 많아 차단되었습니다. 관리자에게 문의하세요.</p>
+    <h1>접근이 차단되었습니다.</h1>
+    <p>인증번호 요청이 너무 많아 차단되었습니다. 일주일 뒤 시도하세요.</p>
     `, '')
     res.send(html);
 });
 
 router.post('/request-code-find', async (req, res) => {
     const phone = req.body.phone;
-    const clientIp = req.clientIp;
+    const ipv6 = req.socket.remoteAddress;
+    const clientIp = ipv6.includes('::ffff:') ? ipv6.split('::ffff:')[1] : ipv6;
 
     // Redis 키
     const codeKey = `code:${phone}`;
@@ -83,7 +90,7 @@ router.post('/request-code-find', async (req, res) => {
     if (rateCount === 1) {
         await redis.expire(rateLimitKey, 300); // 5분 유효
     } else if (rateCount > 2) {
-        return res.status(429).send('요청이 너무 많습니다. 5분 후에 다시 시도하세요.');
+        return res.status(429).send('<script>alert("요청이 너무 많습니다. 5분 후에 다시 시도하세요.");history.back();</script>');
     }
 
     // 총 요청 횟수 제한 (10번 초과 시 차단)
@@ -110,9 +117,10 @@ router.post('/request-code-find', async (req, res) => {
                 text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
             });
             console.log(req.session.phone);
+            res.send('<script>alert("인증번호가 전송되었습니다.");history.back();</script>');
         } catch (error) {
             console.error(error);
-            res.status(500).send('문자 발송 실패!');
+            res.status(500).send('<script>alert("서버 오류입니다. 고객센터에 문의해 주세요.");history.back();</script>');
         }
     })
     console.log(req.session.phone);
@@ -168,7 +176,7 @@ router.get('/account/reset-password', (req, res) => {
         <label for="new-password">사용할 새 비밀번호를 입력해주세요.</label>
         <input class="login" type="password" id="new-password" name="new-password" required>
         <br>
-        <center><button class="btn" type="submit">비밀번호 변경</button></center>
+        <center><button class="btn" type="submit">비밀번호 변경</button><p>8 - 20자 | 영문, 숫자, 특수문자 포함(!@#$%^&*-_)</p></center>
     </form>
     `, '');
     res.send(html);
@@ -182,16 +190,19 @@ router.post('/account/reset-password', (req, res) => {
     if (!userId) {
         return res.status(400).send('사용자가 인증되지 않았습니다.');
     }
-
-    // 사용자의 비밀번호 업데이트
-    db.run("UPDATE Users SET pw = ? WHERE id = ?", [md5(newPassword), userId], function(err) {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('비밀번호 업데이트 오류!');
-        }
-        req.session.destroy(); // 세션 종료
-        return res.redirect('/account/success');
-    });
+    if (vali_pw(newPassword)) {
+        db.run("UPDATE Users SET pw = ? WHERE id = ?", [md5(newPassword), userId], function(err) {
+            if (err) {
+                console.error(err);
+                return res.status(500).send('비밀번호 업데이트 오류!');
+            }
+            db.all("SELECT id FROM Users WHERE pn = ?", [req.session.phone], (err, result) => {
+                return res.redirect(`/account/success/${result[0].id}`);
+            }); 
+        });
+    } else {
+        return res.send('<script>alert("비밀번호의 입력 형식이 올바르지 않습니다.");history.back();</script>');
+    }
 });
 
 module.exports = router;
