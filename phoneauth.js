@@ -9,6 +9,7 @@ const template = require('./template.js');
 var router = express.Router();
 const sqlite = require('sqlite3').verbose(); // sqlite3 모듈 사용
 const redis = new Redis();
+require("dotenv").config();
 const PORT = 8080;
 
 router.use(
@@ -40,7 +41,7 @@ function vali_pw(pw) {
     return pwRegex.test(pw);
 }
 
-const messageService = new coolsms('NCSWP3E1RLJHQG9Q', 'PW1E8H0L8C2AFDNCZ5H66LIM5PPK8XFX');
+const messageService = new coolsms(process.env.API_KEY, process.env.API_SECRET);
 router.get('/account/find', (req, res) => {
     var html = template.HTML('findaccount', `
     <h1>아이디/비밀번호 변경하기</h1>
