@@ -136,31 +136,31 @@ router.post('/verify-code', async (req, res) => {
     const phone = req.session.phone;
     console.log(req.session.phone);
     if (!phone) {
-        return res.status(400).send('전화번호 세션이 만료되었습니다. 다시 인증해 주세요.');
+        return res.status(400).send('<script>alert("전화번호 세션이 만료되었습니다. 다시 인증해 주세요.");history.back();</script>');
     }
 
     // Redis에서 인증번호 확인
     const savedCode = await redis.get(`code:${phone}`);
     if (!savedCode) {
-        return res.status(400).send('인증번호가 만료되었거나 잘못되었습니다.');
+        return res.status(400).send("<script>alert('인증번호가 만료되었거나 잘못되었습니다.');history.back();</script>");
     }
 
     if (savedCode === code) {
         db.get("SELECT id FROM Users WHERE pn = ?", [phone], (err, row) => {
             if (err) {
                 console.error(err);
-                return res.status(500).send('데이터베이스 오류!');
+                return res.status(500).send('<script>alert("데이터베이스 오류입니다.");history.back();</script>');
             }
             if (row) {
                 // 사용자 ID를 세션에 저장
                 req.session.userId = row.id;
                 return res.redirect(`/account/reset-password`);
             } else {
-                return res.status(404).send('해당 전화번호에 해당하는 계정을 찾을 수 없습니다.');
+                return res.status(404).send("<script>alert('해당 전화번호에 해당하는 계정을 찾을 수 없습니다.');history.back();</script>");
             }
         });
     } else {
-        return res.status(400).send('인증번호가 일치하지 않습니다.');
+        return res.status(400).send("<script>alert('인증번호가 일치하지 않습니다.');history.back();</script>");
     }
 });
 
@@ -188,13 +188,13 @@ router.post('/account/reset-password', (req, res) => {
     const userId = req.session.userId;
 
     if (!userId) {
-        return res.status(400).send('사용자가 인증되지 않았습니다.');
+        return res.status(400).send('<script>alert("사용자가 인증되지 않았습니다.");history.back();</script>');
     }
     if (vali_pw(newPassword)) {
         db.run("UPDATE Users SET pw = ? WHERE id = ?", [md5(newPassword), userId], function(err) {
             if (err) {
                 console.error(err);
-                return res.status(500).send('비밀번호 업데이트 오류!');
+                return res.status(500).send('<script>alert("비밀번호 업데이트 오류입니다");history.back();</script>');
             }
             db.all("SELECT id FROM Users WHERE pn = ?", [req.session.phone], (err, result) => {
                 return res.redirect(`/account/success/${result[0].id}`);

@@ -145,6 +145,8 @@ app.post('/execute', (req, res) => {
             }
             res.json({ result: rows });
         });
+    } else {
+        res.send("<script>alert('잘못된 접근입니다.');history.back();</script>")
     }
 });
 
@@ -154,7 +156,7 @@ app.get('/admin', (req, res) => {
     if (isadmin == "admin") {
         res.sendFile(path.join(__dirname, 'public', 'admin.html'));
     } else {
-        res.send("<script>alert('잘못된 접근입니다.');</script>")
+        res.send("<script>alert('잘못된 접근입니다.');history.back();</script>")
     }
 });
 
@@ -172,12 +174,12 @@ app.get("/main", (req, res) => {
         (err, row) => {
             if (err) {
                 console.error(err.message);
-                return res.status(500).send("서버 오류 발생");
+                return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
             }
 
             if (!row) {
                 console.error("No user found with this ID.");
-                return res.status(404).send("사용자를 찾을 수 없습니다.");
+                return res.status(404).send("<script>alert('사용자를 찾을 수 없습니다.');history.back();</script>");
             }
 
             const deleted = row.bigo;
@@ -209,12 +211,12 @@ app.get("/main", (req, res) => {
                         if (err) {
                             console.error(err.message);
                             db.close();
-                            return res.status(500).send("서버 오류 발생");
+                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
                         }
 
                         if (!row) {
                             db.close();
-                            return res.status(404).send("사용자 정보를 찾을 수 없습니다.");
+                            return res.status(404).send("<script>alert('사용자 정보를 찾을 수 없습니다.'');history.back();</script>");
                         }
 
                         const aCode = row.a_code;
@@ -226,7 +228,7 @@ app.get("/main", (req, res) => {
                                 db.close(); // DB 닫기
                                 if (err) {
                                     console.error(err.message);
-                                    return res.status(500).send("서버 오류 발생");
+                                    return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
                                 }
                         
                                 // end 값이 "delete"가 아닌 경우만 포함
@@ -273,12 +275,12 @@ app.get("/main", (req, res) => {
                         if (err) {
                             console.error(err.message);
                             db.close();
-                            return res.status(500).send("서버 오류 발생");
+                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
                         }
 
                         if (!row) {
                             db.close();
-                            return res.status(404).send("사용자 정보를 찾을 수 없습니다.");
+                            return res.status(404).send("<script>alert('사용자 정보를 찾을 수 없습니다.');history.back();</script>");
                         }
 
                         const a_code = row.a_code;
@@ -290,7 +292,7 @@ app.get("/main", (req, res) => {
                                 db.close(); // DB 닫기
                                 if (err) {
                                     console.error(err.message);
-                                    return res.status(500).send("서버 오류 발생");
+                                    return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
                                 }
 
                                 const courseItems = rows
@@ -389,7 +391,7 @@ app.get("/lecture/:l_code", (req, res) => {
                 (err, studentRows) => {
                     if (err) {
                         console.error(err.message);
-                        return res.status(500).send("서버 오류가 발생했습니다.");
+                        return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                     }
 
                     // 회차 수 조회 (테이블의 행 개수)
@@ -398,7 +400,7 @@ app.get("/lecture/:l_code", (req, res) => {
                         (err, sessionRows) => {
                             if (err) {
                                 console.error(err.message);
-                                return res.status(500).send("서버 오류가 발생했습니다.");
+                                return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                             }
 
                             const sessionCount = sessionRows.length;
@@ -723,8 +725,8 @@ app.post("/attend", async (req, res) => {
         `SELECT at_cnt FROM lecture WHERE l_code = ?`,
         [l_code],
         (err, lecRow) => {
-            if (err) return res.status(500).send("서버 오류");
-            if (!lecRow) return res.status(404).send("강좌 없음");
+            if (err) return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
+            if (!lecRow) return res.status(404).send("<script>alert('강좌 없음');history.back();</script>");
             const at_cnt = lecRow.at_cnt;
             if (at_cnt == 2) {
                 db.get(
@@ -733,12 +735,12 @@ app.post("/attend", async (req, res) => {
                     (err, sessionData) => {
                         if (err) {
                             console.error("쿼리 실행 오류: ", err.message);
-                            return res.status(500).send("서버 오류가 발생했습니다.");
+                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                         }
             
                         if (!sessionData) {
-                            console.log("해당 session의 데이터가 없습니다.");
-                            return res.status(404).send("해당 session의 데이터가 없습니다.");
+                            console.log("<script>alert('해당 session의 데이터가 없습니다.');history.back();</script>");
+                            return res.status(404).send("<script>alert('해당 session의 데이터가 없습니다.');history.back();</script>");
                         }
 
                         let o1Array = sessionData.o_1.split("/").filter(item => item.trim() !== "");
@@ -770,7 +772,7 @@ app.post("/attend", async (req, res) => {
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
-                                    return res.status(500).send("상태 업데이트에 실패했습니다.");
+                                    return res.status(500).send("<script>alert('상태 업데이트에 실패했습니다.');history.back();</script>");
                                 }
             
                                 console.log("출석체크 완료됨");
@@ -786,12 +788,12 @@ app.post("/attend", async (req, res) => {
                     (err, sessionData) => {
                         if (err) {
                             console.error("쿼리 실행 오류: ", err.message);
-                            return res.status(500).send("서버 오류가 발생했습니다.");
+                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                         }
             
                         if (!sessionData) {
                             console.log("해당 session의 데이터가 없습니다.");
-                            return res.status(404).send("해당 session의 데이터가 없습니다.");
+                            return res.status(404).send("<script>alert('해당 session의 데이터가 없습니다.');history.back();</script>");
                         }
             
                         // 각 출석 상태를 '/'로 나누어 배열로 저장
@@ -811,7 +813,7 @@ app.post("/attend", async (req, res) => {
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
-                                    return res.status(500).send("상태 업데이트에 실패했습니다.");
+                                    return res.status(500).send("<script>alert('상태 업데이트에 실패했습니다.');history.back();</script>");
                                 }
                             }
                         );
@@ -835,8 +837,8 @@ app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
         `SELECT at_cnt FROM lecture WHERE l_code = ?`,
         [lec_code],
         (err, lecRow) => {
-            if (err) return res.status(500).send("서버 오류");
-            if (!lecRow) return res.status(404).send("강좌 없음");
+            if (err) return res.status(500).send("<script>alert('서버 오류');history.back();</script>");
+            if (!lecRow) return res.status(404).send("<script>alert('강좌 없음');history.back();</script>");
             const at_cnt = lecRow.at_cnt;
             if (at_cnt == 2) {
                 const sendAttendanceData = () => {
@@ -914,7 +916,7 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
         `SELECT lec_name, s_a_code, at_cnt FROM lecture WHERE l_code = ?`,
         [lec_code],
         (err, lecRow) => {
-            if (err) return res.status(500).send("서버 오류");
+            if (err) return res.status(500).send("서버 오류 발생");
             if (!lecRow) return res.status(404).send("강좌 없음");
 
             const lec_name = lecRow.lec_name;
@@ -1090,7 +1092,6 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
         [lec_code],
         (err, lecRow) => {
             if (err) return res.status(500).send("서버 오류");
-            if (!lecRow) return res.status(404).send("강좌 없음");
             const at_cnt = lecRow.at_cnt;
             if (at_cnt == 2) {
                 db.get(
@@ -1099,12 +1100,12 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                     (err, sessionData) => {
                         if (err) {
                             console.error("쿼리 실행 오류: ", err.message);
-                            return res.status(500).send("서버 오류가 발생했습니다.");
+                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                         }
             
                         if (!sessionData) {
                             console.log("해당 session의 데이터가 없습니다.");
-                            return res.status(404).send("해당 session의 데이터가 없습니다.");
+                            return res.status(404).send("<script>alert('해당 session의 데이터가 없습니다.');history.back();</script>");
                         }
             
                         // 각 출석 상태를 '/'로 나누어 배열로 저장
@@ -1157,7 +1158,7 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
-                                    return res.status(500).send("상태 업데이트에 실패했습니다.");
+                                    return res.status(500).send("<script>alert('상태 업데이트에 실패했습니다.');history.back();</script>");
                                 }
             
                                 console.log("출석 상태가 업데이트되었습니다.");
@@ -1173,12 +1174,12 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                     (err, sessionData) => {
                         if (err) {
                             console.error("쿼리 실행 오류: ", err.message);
-                            return res.status(500).send("서버 오류가 발생했습니다.");
+                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                         }
             
                         if (!sessionData) {
                             console.log("해당 session의 데이터가 없습니다.");
-                            return res.status(404).send("해당 session의 데이터가 없습니다.");
+                            return res.status(404).send("<script>alert('해당 session의 데이터가 없습니다.');history.back();</script>");
                         }
             
                         // 각 출석 상태를 '/'로 나누어 배열로 저장
@@ -1209,7 +1210,7 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
-                                    return res.status(500).send("상태 업데이트에 실패했습니다.");
+                                    return res.status(500).send("<script>alert('상태 업데이트에 실패했습니다.');history.back();</script>");
                                 }
                             }
                         );
@@ -1228,13 +1229,13 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
         `SELECT at_cnt FROM lecture WHERE l_code = ?`,
         [lec_code],
         (err, lecRow) => {
-            if (err) return res.status(500).send("서버 오류");
-            if (!lecRow) return res.status(404).send("강좌 없음");
+            if (err) return res.status(500).send("<script>alert('서버 오류');history.back();</script>");
+            if (!lecRow) return res.status(404).send("<script>alert('강좌 없음');history.back();</script>");
             const at_cnt = lecRow.at_cnt;
             if (at_cnt == 2) {
                 if (err) {
                             console.error("쿼리 실행 오류: ", err.message);
-                            return res.status(500).send("서버 오류가 발생했습니다.");
+                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                 }
                 db.run(
                     `UPDATE "${lec_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
@@ -1242,7 +1243,7 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
                     (err) => {
                         if (err) {
                             console.error("업데이트 오류: ", err.message);
-                            return res.status(500).send("상태 업데이트에 실패했습니다.");
+                            return res.status(500).send("<script>alert('상태 업데이트에 실패했습니다.');history.back();</script>");
                         }
     
                         console.log("출석 상태가 업데이트되었습니다.");
@@ -1252,7 +1253,7 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
             if (at_cnt == 1) {
                 if (err) {
                     console.error("쿼리 실행 오류: ", err.message);
-                    return res.status(500).send("서버 오류가 발생했습니다.");
+                    return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                 }
                 db.run(
                     `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
@@ -1260,7 +1261,7 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
                     (err) => {
                         if (err) {
                             console.error("업데이트 오류: ", err.message);
-                            return res.status(500).send("상태 업데이트에 실패했습니다.");
+                            return res.status(500).send("<script>alert('상태 업데이트에 실패했습니다.');history.back();</script>");
                         }
 
                         console.log("출석 상태가 업데이트되었습니다.");

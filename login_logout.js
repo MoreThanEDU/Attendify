@@ -61,7 +61,7 @@ router.post("/login", (req, res) => {
 // Logout process
 router.get("/logout", (req, res) => {
     req.session.destroy((err) => {
-        if (err) return res.send("로그아웃 중 오류가 발생했습니다.");
+        if (err) return res.send("<script>alert('로그아웃 중 오류가 발생했습니다.');history.back();</script>");
         res.redirect("/login");
     });
 });
