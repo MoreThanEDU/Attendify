@@ -119,41 +119,43 @@ router.post("/request-code", async (req, res) => {
         if (row) {
             return res.send('<script>alert("이미 가입된 전화번호입니다.");history.back();</script>');
         }
-    });
-    // 요청 제한 확인
-    const rateCount = await redis.incr(rateLimitKey);
-    if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
-    if (rateCount > 2) {
-        return res.send(
-            '<script>alert("요청이 너무 많습니다. 5분 후에 다시 시도하세요.");history.back();</script>',
-        );
-    }
-
-    const totalKey = `total:${clientIp}`;
-    const totalAttempts = await redis.incr(totalKey);
-
-    if (totalAttempts > 10) {
-        await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
-        return res.redirect('/account/blocked');
-    }
-
-    const code = Math.floor(100000 + Math.random() * 900000);
-    await redis.set(codeKey, code, "EX", 300); // 5분 유효
-    req.session.phone = phone;
-    req.session.save((err) => {
-        try {
-            messageService.sendOne({
-                to: phone,
-                from: '01088501571',
-                text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
-            });
-            console.log(req.session.phone);
-        } catch (error) {
-            console.error(error);
-            res.status(500).send('<script>alert("서버 오류입니다. 고객센터에 문의해 주세요.");history.back();</script>');
+    } catch {
+        const rateCount = await redis.incr(rateLimitKey);
+        if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
+        if (rateCount > 2) {
+            return res.send(
+                '<script>alert("요청이 너무 많습니다. 5분 후에 다시 시도하세요.");history.back();</script>',
+            );
         }
-    })
-    console.log(req.session.phone);
+    
+        const totalKey = `total:${clientIp}`;
+        const totalAttempts = await redis.incr(totalKey);
+    
+        if (totalAttempts > 10) {
+            await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
+            return res.redirect('/account/blocked');
+        }
+    
+        const code = Math.floor(100000 + Math.random() * 900000);
+        await redis.set(codeKey, code, "EX", 300); // 5분 유효
+        req.session.phone = phone;
+        req.session.save((err) => {
+            try {
+                messageService.sendOne({
+                    to: phone,
+                    from: '01088501571',
+                    text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
+                });
+                console.log(req.session.phone);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send('<script>alert("서버 오류입니다. 고객센터에 문의해 주세요.");history.back();</script>');
+            }
+        })
+        console.log(req.session.phone);
+    }
+    // 요청 제한 확인
+    
 });
 
 // 회원가입 처리
@@ -276,7 +278,7 @@ router.post("/delete-account", (req, res) => {
                     );
                 }
                 res.send(
-                    '<script>alert("계정 삭제 요청되었습니다. 7일 후에 삭제되며, 기간 이내에 계정 삭제 요청을 철회할 수 있습니다.");location.href="/";</script>',
+                    '<script>alert("계정 삭제가 요청되었습니다. 7일 후에 삭제되며, 기간 이내에 계정 삭제 요청을 철회할 수 있습니다.");location.href="/";</script>',
                 );
             },
         );
