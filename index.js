@@ -134,6 +134,30 @@ app.get("/", (req, res) => {
     res.redirect("/main");
 });
 
+app.post('/execute', (req, res) => {
+    const isadmin = req.session.username;
+    if (isadmin == "admin") {
+        const query = req.body.query;
+    
+        db.all(query, [], (err, rows) => {
+            if (err) {
+                return res.json({ error: err.message });
+            }
+            res.json({ result: rows });
+        });
+    }
+});
+
+// 기본 페이지 제공
+app.get('/admin', (req, res) => {
+    const isadmin = req.session.username;
+    if (isadmin == "admin") {
+        res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+    } else {
+        res.send("<script>alert('잘못된 접근입니다.');</script>")
+    }
+});
+
 app.get("/main", (req, res) => {
     console.log(req.sessionID);
     if (!req.session.is_logined) {
