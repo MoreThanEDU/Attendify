@@ -6,6 +6,7 @@ const coolsms = require("coolsms-node-sdk").default;
 const sqlite3 = require("sqlite3").verbose();
 const md5 = require("md5");
 const template = require("./template.js");
+const { promisify } = require("util");
 require("dotenv").config();
 
 const router = express.Router();
@@ -28,6 +29,26 @@ function generateRandomString(length) {
     }
 
     return result;
+}
+
+function vali_name(name) {
+    const nameRegex = /^[가-힣a-zA-Z]{2,}$/; // 한글 또는 영문 2~자
+    return nameRegex.test(name);
+}
+
+function vali_id(id) {
+    const idRegex = /^(?=.*[A-Za-z])[a-zA-Z0-9_-]{5,15}$/; // 영문, 숫자, _ , - 포함 5~15자
+    return idRegex.test(id);
+}
+
+function vali_pn(pn) {
+    const pnRegex = /^010[0-9]{3,4}[0-9]{4}$/; // 01012345678 (하이픈 없음), 10~11자리 숫자
+    return pnRegex.test(pn);
+}
+
+function vali_pw(pw) {
+    const pwRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*-_])[A-Za-z\d!@#$%^&*-_]{8,20}$/; // 영문 + 숫자 + 특수문자 포함 8~20자
+    return pwRegex.test(pw);
 }
 
 // Middleware 설정
@@ -55,15 +76,18 @@ router.get("/signup", (req, res) => {
     <h2>회원가입</h2>
     <form action="/request-code" method="post">
         <div class="form-row">
-            <input class="login" type="text" name="phonenumber" placeholder="전화번호" required>
+            <input class="login" type="text" name="phonenumber" placeholder="01012345678" required>
             <input class="btn" style="width: 10%;" type="submit" value="인증코드 전송"></button>
         </div>
     </form>
     <form action="/signup" method="post">
         <input class="login" type="text" name="verificationCode" placeholder="인증코드 입력" required>
         <input class="login" type="text" name="name" placeholder="이름" required>
+        <p>2자 이상 | 한글 또는 영문</p>
         <input class="login" type="text" name="id" placeholder="아이디" required>
+        <p>5 - 15자 | 영문 포함 | 숫자, -, _ 가능</p>
         <input class="login" type="password" name="password" placeholder="비밀번호" required>
+        <p>8 - 20자 | 영문, 숫자, 특수문자 포함(!@#$%^&*-_)</p>
         <input class="login" type="password" name="password2" placeholder="비밀번호 확인" required>
         <div class="radio">
             <label><input type="radio" name="accountType" value="t" required> 교수/교사</label>
@@ -84,17 +108,16 @@ router.post("/request-code", async (req, res) => {
     const codeKey = `code:${phone}`;
     const rateLimitKey = `rate:${clientIp}`;
     let db = new sqlite3.Database("./DB.db");
-    db.get("SELECT * FROM Users WHERE pn = ?", [phone], (err, row) => {
-        if (err) {
-            console.error(err);
-            return res.send(
-                '<script>alert("데이터베이스 오류입니다.");history.back();</script>',
-            );
-        }
+
+    //db.get을 Promise로 변환
+    const dbGet = promisify(db.get).bind(db);
+
+    try {
+        //SQLite에서 전화번호 확인 (await 사용 가능)
+        const row = await dbGet("SELECT * FROM Users WHERE pn = ?", [phone]);
+
         if (row) {
-            return res.send(
-                '<script>alert("이미 가입된 전화번호입니다.");history.back();</script>',
-            );
+            return res.send('<script>alert("이미 가입된 전화번호입니다.");history.back();</script>');
         }
     });
     // 요청 제한 확인
@@ -138,16 +161,28 @@ router.post("/signup", async (req, res) => {
     const { name, id, password, password2, verificationCode, accountType } =
         req.body;
     const phone = req.session.phone;
-
-    if (!phone) {
+    
+    if (!vali_name(name)) {
         return res.send(
-            '<script>alert("인증 코드를 입력해주세요.");history.back();</script>',
+            '<script>alert("이름의 입력 형식이 올바르지 않습니다.");history.back();</script>',
+        );
+    }
+    
+    if (!vali_id(id)) {
+        return res.send(
+            '<script>alert("아이디의 입력 형식이 올바르지 않습니다.");history.back();</script>',
         );
     }
 
-    if (password !== password2) {
+    if (!vali_pn(phone)) {
         return res.send(
-            '<script>alert("비밀번호와 비밀번호 확인에 입력된 값이 다릅니다.");history.back();</script>',
+            '<script>alert("전화번호의 입력 형식이 올바르지 않습니다.");history.back();</script>',
+        );
+    }
+
+    if (!vali_pw(password)) {
+        return res.send(
+            '<script>alert("비밀번호의 입력 형식이 올바르지 않습니다.");history.back();</script>',
         );
     }
 
@@ -182,6 +217,7 @@ router.post("/signup", async (req, res) => {
                         '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
                     );
                 }
+                res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/login";</script>');
             },
         );
     });
