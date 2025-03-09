@@ -143,8 +143,6 @@ router.post("/request-code", async (req, res) => {
     })
     console.log(req.session.phone);
 });
-    
-
 
 // 회원가입 처리
 router.post("/signup", async (req, res) => {
