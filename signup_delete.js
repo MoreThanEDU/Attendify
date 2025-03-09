@@ -11,10 +11,7 @@ require("dotenv").config();
 
 const router = express.Router();
 const redis = new Redis();
-const messageService = new coolsms(
-    "NCSWP3E1RLJHQG9Q",
-    "PW1E8H0L8C2AFDNCZ5H66LIM5PPK8XFX",
-);
+const messageService = new coolsms(process.env.API_KEY, process.env.API_SECRET);
 
 function generateRandomString(length) {
     const characters =
@@ -51,14 +48,11 @@ function vali_pw(pw) {
     return pwRegex.test(pw);
 }
 
-// Middleware 설정
-router.use(bodyParser.urlencoded({ extended: true }));
-router.use(bodyParser.json());
 router.use(
     session({
         secret: process.env.SESSION_SECRET, // 환경 변수에서 키를 가져옴
         resave: false,
-        saveUninitialized: true,
+        saveUninitialized: false,
         cookie: {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -66,6 +60,9 @@ router.use(
         },
     }),
 );
+router.use(bodyParser.urlencoded({ extended: true }));
+router.use(bodyParser.json());
+
 
 const REQUEST_LIMIT = 2; // 5분에 2번
 const TOTAL_LIMIT = 10; // 총 10번
@@ -111,15 +108,10 @@ router.post("/request-code", async (req, res) => {
 
     //db.get을 Promise로 변환
     const dbGet = promisify(db.get).bind(db);
-
-    try {
-        //SQLite에서 전화번호 확인 (await 사용 가능)
-        const row = await dbGet("SELECT * FROM Users WHERE pn = ?", [phone]);
-
-        if (row) {
-            return res.send('<script>alert("이미 가입된 전화번호입니다.");history.back();</script>');
-        }
-    } catch {
+    const row = await dbGet("SELECT * FROM Users WHERE pn = ?", [phone]);
+    if (row) {
+        return res.send('<script>alert("이미 가입된 전화번호입니다.");history.back();</script>');
+    } else {
         const rateCount = await redis.incr(rateLimitKey);
         if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
         if (rateCount > 2) {
@@ -135,26 +127,22 @@ router.post("/request-code", async (req, res) => {
             await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
             return res.redirect('/account/blocked');
         }
-    
+        
         const code = Math.floor(100000 + Math.random() * 900000);
+        
         await redis.set(codeKey, code, "EX", 300); // 5분 유효
+        
         req.session.phone = phone;
-        req.session.save((err) => {
-            try {
-                messageService.sendOne({
-                    to: phone,
-                    from: '01088501571',
-                    text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
-                });
-                console.log(req.session.phone);
-            } catch (error) {
-                console.error(error);
-                res.status(500).send('<script>alert("서버 오류입니다. 고객센터에 문의해 주세요.");history.back();</script>');
-            }
-        })
+
+        messageService.sendOne({
+            to: phone,
+            from: '01088501571',
+            text: '한글 45자, 영자 90자 이하 입력되면 자동으로 SMS타입의 메시지가 발송됩니다.',
+            }).then(res => console.log(res))
+        .catch(err => console.error(err));
+        res.send('<script>alert("인증번호가 전송되었습니다.");history.back();</script>');
         console.log(req.session.phone);
     }
-    // 요청 제한 확인
     
 });
 
