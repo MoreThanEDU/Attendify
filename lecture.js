@@ -307,4 +307,71 @@ router.get("/jongkang/:lec_code", (req, res) => {
     });
 });
 
+router.get("/disposable", (req, res) => {
+    const db = new sqlite3.Database("./DB.db");
+    let l_code = generateRandomString(6);
+
+    db.get("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+        if (row) {
+            l_code = generateRandomString(6);
+        }
+
+        db.get(
+            "SELECT a_code FROM Users WHERE id = ?",
+            [req.session.username],
+            (err, row) => {
+                if (err) {
+                    console.error("에러 발생:", err);
+                } else if (row) {
+                    console.log("가져온 데이터:", row);
+                    const myACode = row.a_code;
+                    db.run(
+                        "INSERT INTO disposable (l_code, t_a_code) VALUES (?, ?)",
+                        [l_code, myACode],
+                        (err) => {
+                            if (err) {
+                                console.error(err);
+                                return res.send(
+                                    '<script>alert("강좌 생성에 실패했습니다.");history.back();</script>',
+                                );
+                            }
+                        },
+                    );
+                } else {
+                    console.log("오류 발생");
+                }
+            },
+        );
+    });
+
+    const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
+        attend TEXT
+    );`;
+
+    db.run(query, (err) => {
+        if (err) {
+            console.error("테이블 생성 중 오류:", err);
+        } else {
+            console.log("테이블이 성공적으로 생성됨!");
+        }
+        db.run(
+            `INSERT INTO ${l_code} (attend) VALUES (?)`,
+            [""],
+            (err) => {
+                if (err) {
+                    console.error(err);
+                    return res.send(
+                        '<script>alert("데이터 삽입 실패");history.back();</script>',
+                    );
+                } else {
+                    console.log("데이터 삽입 성공!");
+                    return res.send(
+                        "<script>alert('강좌가 생성되었습니다.');location.href='/main'</script>",
+                    );
+                }
+            },
+        );
+    });
+});
+
 module.exports = router;

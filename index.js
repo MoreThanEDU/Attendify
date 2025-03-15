@@ -329,6 +329,20 @@ app.get("/generateqrcode", (req, res) => {
     generateQRcode();
 });
 
+/**app.get("/lecture/disposable/:l_code", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.redirect("/login");
+    }
+    if (req.session.t_s === "s") {
+        return res.send('<script>alert("잘못된 접근입니다.");history.back();</script>');
+    }
+    const lec_code = req.params.l_code;
+    const db = new sqlite3.Database("./DB.db");
+    db.get(
+        `SELECT lec_name, s_a_code, t_a_code, at_cnt FROM lecture WHERE l_code = ?`, [lec_code], (err, result) => {
+            dc
+    });**/
+
 app.get("/lecture/:l_code", (req, res) => {
     if (!req.session.is_logined) {
         return res.redirect("/login");
@@ -902,8 +916,150 @@ app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
                 req.on("close", () => clearInterval(interval));
             }
     });
+});
 
+app.get("/disposableatd/sse/:l_code", (req, res) => {
+    const lec_code = req.params.l_code;
+    const db = new sqlite3.Database("./DB.db");
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const sendAttendanceData = () => {
+        db.get(`SELECT * FROM "${lec_code}"`, (err, sessionData) => {
+            if (err || !sessionData) {
+                console.error("DB 오류 또는 데이터 없음", err);
+                res.write(`data: {}\n\n`);
+                return;
+            }
+
+            const attendList = sessionData.attend.split("/").filter(Boolean); // 출석자 목록
+            if (attendList.length === 0) {
+                res.write(`data: ${JSON.stringify({ students: [] })}\n\n`);
+                return;
+            }
+
+            // 출석한 학생들의 이름을 가져오기
+            const placeholders = attendList.map(() => "?").join(", ");
+            db.all(`SELECT name, a_code FROM Users WHERE a_code IN (${placeholders})`, attendList, (err, rows) => {
+                if (err) {
+                    console.error("학생 정보 조회 오류", err);
+                    res.write(`data: {}\n\n`);
+                    return;
+                }
+
+                const students = rows.map(row => ({
+                    name: row.name
+                }));
+
+                res.write(`data: ${JSON.stringify({ students })}\n\n`);
+            });
+        });
+    };
+
+    // 0.5초마다 데이터 전송
+    const interval = setInterval(sendAttendanceData, 500);
+
+    // 연결 종료 시 인터벌 제거
+    req.on("close", () => clearInterval(interval));
+});
+
+app.get("/disposableatd/:l_code/", (req, res) => {
+    const db = new sqlite3.Database("./DB.db");
+    const l_code = req.params.l_code;
+    db.all(
+        `SELECT attend FROM "${l_code}"`,
+        async (err, DBRows) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).send("데이터베이스 오류");
+            }
     
+            const studentRows = DBRows[0].attend.split('/').filter(item => item.trim() !== "");
+            console.log(studentRows);  // ✅ 정상 출력
+    
+            // 모든 비동기 요청을 실행하고 완료될 때까지 기다림
+            const names = await Promise.all(
+                studentRows.map(code =>
+                    new Promise((resolve) => {
+                        db.all("SELECT name FROM Users WHERE a_code = ?", [code], (err, row) => {
+                            resolve(row.length > 0 ? row[0].name : "이름 없음");
+                        });
+                    })
+                )
+            );
+    
+            console.log(names);  // ✅ 정상적으로 name 값이 담긴 배열 출력
+    
+            let student_item = '';
+            for (let i = 0; i < studentRows.length; i++) {
+                student_item += `
+                    <div class="student-item" data-a-code="${studentRows[i]}">
+                        <span>${names[i]}</span>
+                        <div class="status">
+                            <span class="present" id="status-${studentRows[i]}">출석</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            res.send(`
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>일회용 출석 관리</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
+                        .container { width: 95%; padding: 10px; }
+                        .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
+                        .student-item { background: linear-gradient(to right, #10A99A, #AED56F); padding: 10px; border-radius: 8px; color: white; font-weight: bold; display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+                        .status { display: flex; align-items: center; gap: 10px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="attendance-list" id="attendanceList">
+                            <div class="attendance-header">
+                                <span>이름</span>
+                                <div>
+                                    <span style="margin-right: 10px;">상태</span>
+                                </div>
+                            </div>
+                            <div class="student-container">
+                                ${student_item}
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        const studentContainer = document.querySelector(".student-container");
+                        const eventSource = new EventSource('/disposableatd/sse/${l_code}');
+
+                        eventSource.onmessage = (event) => {
+                            const data = JSON.parse(event.data);
+                            console.log("SSE 데이터 수신:", data);
+
+                            // 기존 목록 초기화 후 새로운 데이터로 갱신
+                            studentContainer.innerHTML = "";
+
+                            data.students.forEach(student => {
+                                const studentItem = document.createElement("div");
+                                studentItem.classList.add("student-item");
+
+                                studentItem.innerHTML = '<span>' + student.name + '</span><div class="status"><span class="present">출석</span></div>';
+
+                                studentContainer.appendChild(studentItem);
+                            });
+                        };
+
+                        eventSource.onerror = () => console.log("🚨 SSE 연결 끊어짐");
+                    </script>
+
+                </body>
+            </html>
+            `);
+        }
+    );
 });
 
 // 출석 리스트 페이지
