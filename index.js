@@ -222,7 +222,7 @@ app.get("/main", (req, res) => {
                         const aCode = row.a_code;
 
                         db.all(
-                            `SELECT lec_name, l_code, end FROM lecture WHERE t_a_code = ?`,
+                            `SELECT lec_name, l_code, end, at_cnt FROM lecture WHERE t_a_code = ?`,
                             [aCode],
                             (err, rows) => {
                                 db.close(); // DB 닫기
@@ -233,7 +233,7 @@ app.get("/main", (req, res) => {
                         
                                 // end 값이 "delete"가 아닌 경우만 포함
                                 const courseItems = rows
-                                    .filter(row => row.end !== "delete") // 🚨 여기 추가!
+                                    .filter(row => row.end !== "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
                                     .map(
                                         (row) =>
                                             `<div class="course-item" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
@@ -241,7 +241,7 @@ app.get("/main", (req, res) => {
                                     .join("");
 
                                 const courseDone = rows
-                                    .filter(row => row.end == "delete") // 🚨 여기 추가!
+                                    .filter(row => row.end == "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
                                     .map(
                                         (row) =>
                                             `<div class="course-item-done" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
@@ -289,27 +289,31 @@ app.get("/main", (req, res) => {
                             `SELECT lec_name, l_code FROM lecture WHERE s_a_code LIKE ?`,
                             [`%${a_code}%`],
                             (err, rows) => {
-                                db.close(); // DB 닫기
-                                if (err) {
-                                    console.error(err.message);
-                                    return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
-                                }
-
                                 const courseItems = rows
-                                    .map((row) => `<div class="course-item">${row.lec_name}</div>`)
+                                    .filter(row => row.end !== "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
+                                    .map(
+                                        (row) =>
+                                            `<div class="course-item" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
+                                    )
+                                    .join("");
+
+                                const courseDone = rows
+                                    .filter(row => row.end == "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
+                                    .map(
+                                        (row) =>
+                                            `<div class="course-item-done" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
+                                    )
                                     .join("");
 
                                 const content = `
-                                <div class="container" style="display: flex; padding: 20px; gap: 20px">
-                                    <div class="left-panel">
-                                        <div class="title">수강중인 강좌</div>
-                                        <div class="course-list">${courseItems}</div>
+                                <div class="container">
+                                    <div class="title">진행중인 강좌</div>
+                                    <div class="course-list">
+                                        ${courseItems}
                                     </div>
-                                    <div class="right-panel">
-                                        <div class="buttons">
-                                            <button onclick="location.href='/attendify'">출석체크하기</button>
-                                            <button type="button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
-                                        </div>
+                                    <div class="title" style="margin-top: 30px;">종강된 강좌</div>
+                                    <div class="course-list">
+                                        ${courseDone}
                                     </div>
                                 </div>`;
 
@@ -439,127 +443,206 @@ app.get("/lecture/:l_code", (req, res) => {
                                     return res.send('<script>alert("서버 오류입니다.");history.back();</script>');
                                 }
                                 if (userRow.end !== "delete") {
-                                    const thtml = ltemplate.HTML(
-                                        req.session.username,
-                                        `
-                                        <div class="container">
-                                            <div class="left-panel">
-                                                <div class="course-title">
-                                                    <h2>${lec_name}</h2>
-                                                    <select class="dropdown" id="sessionDropdown">
-                                                        ${sessionOptions}
-                                                    </select>
+                                    if (at_cnt == 0) {
+                                        const thtml = ltemplate.HTML(
+                                            req.session.username,
+                                            `
+                                            <div class="container">
+                                                <div class="left-panel">
+                                                    <div class="course-title">
+                                                        <h2>${lec_code}</h2>
+                                                    </div>
+                                                    
+                                                    <!-- 출석 리스트를 표시할 iframe -->
+                                                    <iframe id="attendanceFrame" src="/disposableatd/${lec_code}" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
+                                                </div>
+            
+                                                <div class="modal-overlay" id="modalOverlay">
+                                                    <div class="modal">
+                                                        <p>종강 처리 하시겠습니까?</p>
+                                                        <button class="cancel" onclick="jongkang();">종강</button>
+                                                        <button class="confirm" onclick="document.getElementById('modalOverlay').style.display = 'none';">취소</button>
+                                                    </div>
+                                                </div>
+            
+                                                <div class="modal-overlay" id="chaselect">
+                                                    <div class="modal">
+                                                        <p>출석체크할 회차를 선택해주세요.</p>
+                                                        <button class="confirm" onclick="revealqrcode('1');">1차</button>
+                                                        <button class="confirm" onclick="revealqrcode('2')">2차</button>
+                                                        <button class="cancel" onclick="document.getElementById('chaselect').style.display = 'none';">취소</button>
+                                                    </div>
                                                 </div>
                                                 
-                                                <!-- 출석 리스트를 표시할 iframe -->
-                                                <iframe id="attendanceFrame" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
-                                            </div>
-        
-                                            <div class="modal-overlay" id="modalOverlay">
-                                                <div class="modal">
-                                                    <p>종강 처리 하시겠습니까?</p>
-                                                    <button class="cancel" onclick="jongkang();">종강</button>
-                                                    <button class="confirm" onclick="document.getElementById('modalOverlay').style.display = 'none';">취소</button>
+                                                <div class="right-panel">
+                                                    <div class="buttons">
+                                                    </div>
+                                                    <center><div class="qrcode" id="qrcode">
+                                                        <iframe id="qrcodeframe" width="470px" height="550" style="overflow-x: hidden; border: none;"></iframe>
+                                                    </div></center>
                                                 </div>
                                             </div>
+                                            <script>
+                                                const at_cnt = ${at_cnt};
+                                                const button = document.getElementById('attendify');
+                                                const qrframe = document.getElementById('qrcodeframe');
         
-                                            <div class="modal-overlay" id="chaselect">
-                                                <div class="modal">
-                                                    <p>출석체크할 회차를 선택해주세요.</p>
-                                                    <button class="confirm" onclick="revealqrcode('1');">1차</button>
-                                                    <button class="confirm" onclick="revealqrcode('2')">2차</button>
-                                                    <button class="cancel" onclick="document.getElementById('chaselect').style.display = 'none';">취소</button>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="right-panel">
-                                                <div class="buttons">
-                                                    <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
-                                                    <button onclick="changestatusno();">미출석으로 변경</button>
-                                                    <button>출석 통계 확인</button>
-                                                    <button id='attendify' onclick="selectcha();">출석체크 시작</button>
-                                                    <button onclick="deleteclass();">수업 종강하기</button>
-                                                </div>
-                                                <center><div class="qrcode" id="qrcode">
-                                                    <iframe id="qrcodeframe" width="470px" height="550" style="overflow-x: hidden; border: none;"></iframe>
-                                                </div></center>
-                                            </div>
-                                        </div>
-                                        <script>
-                                            const at_cnt = ${at_cnt};
-                                            const button = document.getElementById('attendify');
-                                            const qrframe = document.getElementById('qrcodeframe');
-        
-                                            function revealqrcode(cha) {
-                                                //몇차 출첵인지 입력받고 QR생성
-                                                qrframe.src = "/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
-                                                button.innerText = "출석체크 중단";
-                                                document.getElementById("chaselect").style.display = "none";
-                                            }
-                                            
-                                            function selectcha() {
-                                                if (at_cnt == 1) {
-                                                    if (button.innerText == "출석체크 시작") {
-                                                        revealqrcode("no");
-                                                        button.innerText = "출석체크 중단";
+                                                qrframe.src = "/qrcode/${lec_code}/" + "1" + "/" + generateRandomString(50) + "/" + "0" ;
+            
+                                                function generateRandomString(length) {
+                                                    const characters =
+                                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                                                    let result = "";
+                                                    const charactersLength = characters.length;
+            
+                                                    for (let i = 0; i < length; i++) {
+                                                        result += characters.charAt(
+                                                            Math.floor(Math.random() * charactersLength),
+                                                        );
                                                     }
-                                                    else {
-                                                        qrframe.src = "";
-                                                        button.innerText = "출석체크 시작";
-                                                    }
+            
+                                                    return result;
                                                 }
-                                                if (at_cnt == 2) {
-                                                    if (button.innerText == "출석체크 시작") {
-                                                        document.getElementById("chaselect").style.display = "flex";
-                                                    }
-                                                    else {
-                                                        qrframe.src = "";
-                                                        button.innerText = "출석체크 시작";
-                                                    }
+                                                    
+                                                function changestatusno() {
+                                                    location.href='/nostatus/${lec_code}/' + document.getElementById('sessionDropdown').value;
                                                 }
-                                            }
-        
-                                            const iframe = document.getElementById('attendanceFrame');
-                                            iframe.src = "/attendancelist/${lec_code}/1";
-                                            qrframe.src = "/showtext/수업코드: ${lec_code}";
-                                            // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
-                                            document.getElementById('sessionDropdown').addEventListener('change', function() {
-                                                let selectedSession = this.value;
-                                                iframe.src = "/attendancelist/${lec_code}/" + selectedSession;
-                                                button.innerText = "출석체크 시작";
-                                            });
-        
-                                            function generateRandomString(length) {
-                                                const characters =
-                                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-                                                let result = "";
-                                                const charactersLength = characters.length;
-        
-                                                for (let i = 0; i < length; i++) {
-                                                    result += characters.charAt(
-                                                        Math.floor(Math.random() * charactersLength),
-                                                    );
-                                                }
-        
-                                                return result;
-                                            }
                                                 
-                                            function changestatusno() {
-                                                location.href='/nostatus/${lec_code}/' + document.getElementById('sessionDropdown').value;
-                                            }
-                                            
-                                            function deleteclass() {
-                                                document.getElementById("modalOverlay").style.display = "flex";
-                                            }
-        
-                                            function jongkang() {
-                                                document.getElementById("modalOverlay").style.display = "none";
-                                                location.href='/jongkang/${lec_code}/';
-                                            }
-                                        </script>
-                                        `,
-                                    );
-                                    res.send(thtml);
+                                                function deleteclass() {
+                                                    document.getElementById("modalOverlay").style.display = "flex";
+                                                }
+            
+                                                function jongkang() {
+                                                    document.getElementById("modalOverlay").style.display = "none";
+                                                    location.href='/jongkang/${lec_code}/';
+                                                }
+                                            </script>
+                                            `,
+                                        );
+                                        res.send(thtml);
+                                    } else {
+                                        const thtml = ltemplate.HTML(
+                                            req.session.username,
+                                            `
+                                            <div class="container">
+                                                <div class="left-panel">
+                                                    <div class="course-title">
+                                                        <h2>${lec_name}</h2>
+                                                        <select class="dropdown" id="sessionDropdown">
+                                                            ${sessionOptions}
+                                                        </select>
+                                                    </div>
+                                                    
+                                                    <!-- 출석 리스트를 표시할 iframe -->
+                                                    <iframe id="attendanceFrame" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
+                                                </div>
+            
+                                                <div class="modal-overlay" id="modalOverlay">
+                                                    <div class="modal">
+                                                        <p>종강 처리 하시겠습니까?</p>
+                                                        <button class="cancel" onclick="jongkang();">종강</button>
+                                                        <button class="confirm" onclick="document.getElementById('modalOverlay').style.display = 'none';">취소</button>
+                                                    </div>
+                                                </div>
+            
+                                                <div class="modal-overlay" id="chaselect">
+                                                    <div class="modal">
+                                                        <p>출석체크할 회차를 선택해주세요.</p>
+                                                        <button class="confirm" onclick="revealqrcode('1');">1차</button>
+                                                        <button class="confirm" onclick="revealqrcode('2')">2차</button>
+                                                        <button class="cancel" onclick="document.getElementById('chaselect').style.display = 'none';">취소</button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="right-panel">
+                                                    <div class="buttons">
+                                                        <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
+                                                        <button onclick="changestatusno();">미출석으로 변경</button>
+                                                        <button>출석 통계 확인</button>
+                                                        <button id='attendify' onclick="selectcha();">출석체크 시작</button>
+                                                        <button onclick="deleteclass();">수업 종강하기</button>
+                                                    </div>
+                                                    <center><div class="qrcode" id="qrcode">
+                                                        <iframe id="qrcodeframe" width="470px" height="550" style="overflow-x: hidden; border: none;"></iframe>
+                                                    </div></center>
+                                                </div>
+                                            </div>
+                                            <script>
+                                                const at_cnt = ${at_cnt};
+                                                const button = document.getElementById('attendify');
+                                                const qrframe = document.getElementById('qrcodeframe');
+            
+                                                function revealqrcode(cha) {
+                                                    //몇차 출첵인지 입력받고 QR생성
+                                                    qrframe.src = "/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
+                                                    button.innerText = "출석체크 중단";
+                                                    document.getElementById("chaselect").style.display = "none";
+                                                }
+                                                
+                                                function selectcha() {
+                                                    if (at_cnt == 1) {
+                                                        if (button.innerText == "출석체크 시작") {
+                                                            revealqrcode("no");
+                                                            button.innerText = "출석체크 중단";
+                                                        }
+                                                        else {
+                                                            qrframe.src = "";
+                                                            button.innerText = "출석체크 시작";
+                                                        }
+                                                    }
+                                                    if (at_cnt == 2) {
+                                                        if (button.innerText == "출석체크 시작") {
+                                                            document.getElementById("chaselect").style.display = "flex";
+                                                        }
+                                                        else {
+                                                            qrframe.src = "";
+                                                            button.innerText = "출석체크 시작";
+                                                        }
+                                                    }
+                                                }
+            
+                                                const iframe = document.getElementById('attendanceFrame');
+                                                iframe.src = "/attendancelist/${lec_code}/1";
+                                                qrframe.src = "/showtext/수업코드: ${lec_code}";
+                                                // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
+                                                document.getElementById('sessionDropdown').addEventListener('change', function() {
+                                                    let selectedSession = this.value;
+                                                    iframe.src = "/attendancelist/${lec_code}/" + selectedSession;
+                                                    button.innerText = "출석체크 시작";
+                                                });
+            
+                                                function generateRandomString(length) {
+                                                    const characters =
+                                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                                                    let result = "";
+                                                    const charactersLength = characters.length;
+            
+                                                    for (let i = 0; i < length; i++) {
+                                                        result += characters.charAt(
+                                                            Math.floor(Math.random() * charactersLength),
+                                                        );
+                                                    }
+            
+                                                    return result;
+                                                }
+                                                    
+                                                function changestatusno() {
+                                                    location.href='/nostatus/${lec_code}/' + document.getElementById('sessionDropdown').value;
+                                                }
+                                                
+                                                function deleteclass() {
+                                                    document.getElementById("modalOverlay").style.display = "flex";
+                                                }
+            
+                                                function jongkang() {
+                                                    document.getElementById("modalOverlay").style.display = "none";
+                                                    location.href='/jongkang/${lec_code}/';
+                                                }
+                                            </script>
+                                            `,
+                                        );
+                                        res.send(thtml);
+                                    }
                                 } else {
                                     const thtml = ltemplate.HTML(
                                         req.session.username,
@@ -761,7 +844,11 @@ app.post("/attend", async (req, res) => {
                         let x1Array = sessionData.x_1.split("/").filter(item => item.trim() !== "");
                         let o2Array = sessionData.o_2.split("/").filter(item => item.trim() !== "");
                         let x2Array = sessionData.x_2.split("/").filter(item => item.trim() !== "");
-            
+                        
+                        if (o1Array.includes(a_code)||o2Array.includes(a_code)) {
+                            return res.send("<script>alert('이미 출석한 사용자입니다.');history.back();</script>");
+                        }
+
                         if (cha == 1) {
                             o1Array.push(a_code);
                         } else if (cha == 2) {
@@ -814,7 +901,10 @@ app.post("/attend", async (req, res) => {
                         let attend = sessionData.attend.split("/").filter(item => item.trim() !== "");
                         let late = sessionData.late.split("/").filter(item => item.trim() !== "");
                         let absent = sessionData.absent.split("/").filter(item => item.trim() !== "");
-            
+                        
+                        if (attend.includes(a_code)||late.includes(a_code)||absent.includes(a_code)) {
+                            return res.send("<script>alert('이미 출석한 사용자입니다.');history.back();</script>");
+                        }
                         attend.push(a_code);
             
                         let attendupdate = attend.join("/");
@@ -833,6 +923,41 @@ app.post("/attend", async (req, res) => {
                         );
                     }
                 );
+            }
+            if (at_cnt == 0) {
+                db.all("SELECT s_a_code FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+                    console.log(row);
+                    if (err) {
+                        console.error("에러 발생:", err);
+                    } else if (row.length > 0) {
+                        let students = row[0].s_a_code;
+                        let students_array = students.split("/");
+                        if (students_array.includes(a_code) === false) {
+                            students_array.push(a_code);
+                            students = students_array.join("/")
+            
+                            db.run("UPDATE lecture SET s_a_code = ? WHERE l_code = ?", [students, l_code], function (err) {
+                                if (err) {
+                                    console.error("에러 발생:", err);
+                                } else {
+                                    return res.send(
+                                        "<script>location.href='/main';</script>",
+                                    );
+                                }
+                            });
+                        } else {
+                            console.log("수강 신청 실패!");
+                            return res.send(
+                                "<script>alert('이미 출석체크 되었습니다.');location.href='/enroll-lecture';</script>",
+                            );
+                        }
+                    } else {
+                        console.log("수강 신청 실패!");
+                        return res.send(
+                            "<script>alert('강좌가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+                        );
+                    }
+                });
             }
         })
 });
@@ -926,14 +1051,14 @@ app.get("/disposableatd/sse/:l_code", (req, res) => {
     res.setHeader("Connection", "keep-alive");
 
     const sendAttendanceData = () => {
-        db.get(`SELECT * FROM "${lec_code}"`, (err, sessionData) => {
+        db.get(`SELECT * FROM lecture WHERE l_code = ?`, [lec_code], (err, sessionData) => {
             if (err || !sessionData) {
                 console.error("DB 오류 또는 데이터 없음", err);
                 res.write(`data: {}\n\n`);
                 return;
             }
 
-            const attendList = sessionData.attend.split("/").filter(Boolean); // 출석자 목록
+            const attendList = sessionData.s_a_code.split("/").filter(Boolean); // 출석자 목록
             if (attendList.length === 0) {
                 res.write(`data: ${JSON.stringify({ students: [] })}\n\n`);
                 return;
@@ -968,14 +1093,14 @@ app.get("/disposableatd/:l_code/", (req, res) => {
     const db = new sqlite3.Database("./DB.db");
     const l_code = req.params.l_code;
     db.all(
-        `SELECT attend FROM "${l_code}"`,
+        `SELECT * FROM lecture where l_code = ?`, [l_code], 
         async (err, DBRows) => {
             if (err) {
                 console.error(err);
                 return res.status(500).send("데이터베이스 오류");
             }
     
-            const studentRows = DBRows[0].attend.split('/').filter(item => item.trim() !== "");
+            const studentRows = DBRows[0].s_a_code.split('/').filter(item => item.trim() !== "");
             console.log(studentRows);  // ✅ 정상 출력
     
             // 모든 비동기 요청을 실행하고 완료될 때까지 기다림

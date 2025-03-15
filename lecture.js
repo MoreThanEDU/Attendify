@@ -239,7 +239,7 @@ router.get("/enroll-lecture", (req, res) => {
 });
 
 router.post("/lec_enroll", (req, res) => {
-    const l_code = req.body.lec_code;
+    const l_code = req.body.lec_name;
     const a_code = req.session.a_code;
     console.log(l_code);
     db.all("SELECT s_a_code FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
@@ -267,6 +267,46 @@ router.post("/lec_enroll", (req, res) => {
                 console.log("수강 신청 실패!");
                 return res.send(
                     "<script>alert('이미 수강중인 강좌입니다.');location.href='/enroll-lecture';</script>",
+                );
+            }
+        } else {
+            console.log("수강 신청 실패!");
+            return res.send(
+                "<script>alert('강좌가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+            );
+        }
+        
+    });
+});
+
+router.post("/disposable-attend", (req, res) => {
+    const l_code = req.body.lec_name;
+    const a_code = req.session.a_code;
+    console.log(l_code);
+    db.all("SELECT s_a_code FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+        console.log(row);
+        if (err) {
+            console.error("에러 발생:", err);
+        } else if (row.length > 0) {
+            let students = row[0].s_a_code;
+            let students_array = students.split("/");
+            console.log(students_array);
+            if (students_array.includes(a_code) === false) {
+                students_array.push(a_code);
+                students = students_array.join("/")
+
+                db.run("UPDATE lecture SET s_a_code = ? WHERE l_code = ?", [students, l_code], function (err) {
+                    if (err) {
+                        console.error("에러 발생:", err);
+                    } else {
+                        return res.send(
+                            "<script>location.href='/main';</script>",
+                        );
+                    }
+                });
+            } else {
+                return res.send(
+                    "<script>alert('이미 출석체크 되었습니다.');location.href='/enroll-lecture';</script>",
                 );
             }
         } else {
@@ -326,8 +366,8 @@ router.get("/disposable", (req, res) => {
                     console.log("가져온 데이터:", row);
                     const myACode = row.a_code;
                     db.run(
-                        "INSERT INTO disposable (l_code, t_a_code) VALUES (?, ?)",
-                        [l_code, myACode],
+                        "INSERT INTO lecture (lec_name, l_code, t_a_code, s_a_code, at_cnt, end) VALUES (?, ?, ?, ?, ?, ?)",
+                        ["", l_code, myACode, "", 0, null],
                         (err) => {
                             if (err) {
                                 console.error(err);
