@@ -20,7 +20,10 @@ function generateRandomString(length) {
     return result;
 }
 
-router.get("/create-lecture", (req, res) => {
+router.get("/lecture/create", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     if (req.session.t_s === "t") {
         var html = template.HTML(
             "lecture",
@@ -49,6 +52,12 @@ router.get("/create-lecture", (req, res) => {
 });
 
 router.post("/lec_create", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const { lec_name, at_cnt } = req.body;
 
     const db = new sqlite3.Database("./DB.db");
@@ -161,6 +170,12 @@ router.post("/lec_create", (req, res) => {
 });
 
 router.get("/newsession/:lec_code", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const db = new sqlite3.Database("./DB.db");
     const l_code = req.params.lec_code;
     db.get("SELECT at_cnt FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
@@ -217,7 +232,10 @@ router.get("/newsession/:lec_code", (req, res) => {
     });
 });
 
-router.get("/enroll-lecture", (req, res) => {
+router.get("/lecture/enroll", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     if (req.session.t_s === "s") {
         var html = template.HTML(
             "lecture",
@@ -239,6 +257,12 @@ router.get("/enroll-lecture", (req, res) => {
 });
 
 router.post("/lec_enroll", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const l_code = req.body.lec_name;
     const a_code = req.session.a_code;
     console.log(l_code);
@@ -266,13 +290,13 @@ router.post("/lec_enroll", (req, res) => {
             } else {
                 console.log("수강 신청 실패!");
                 return res.send(
-                    "<script>alert('이미 수강중인 강좌입니다.');location.href='/enroll-lecture';</script>",
+                    "<script>alert('이미 수강중인 강좌입니다.');location.href='/lecture/enroll';</script>",
                 );
             }
         } else {
             console.log("수강 신청 실패!");
             return res.send(
-                "<script>alert('강좌가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+                "<script>alert('강좌가 존재하지 않습니다.');location.href='/lecture/enroll';</script>",
             );
         }
         
@@ -280,6 +304,12 @@ router.post("/lec_enroll", (req, res) => {
 });
 
 router.post("/disposable-attend", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const l_code = req.body.lec_name;
     const a_code = req.session.a_code;
     console.log(l_code);
@@ -306,13 +336,13 @@ router.post("/disposable-attend", (req, res) => {
                 });
             } else {
                 return res.send(
-                    "<script>alert('이미 출석체크 되었습니다.');location.href='/enroll-lecture';</script>",
+                    "<script>alert('이미 출석체크 되었습니다.');location.href='/main';</script>",
                 );
             }
         } else {
             console.log("수강 신청 실패!");
             return res.send(
-                "<script>alert('강좌가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+                "<script>alert('강좌가 존재하지 않습니다.');location.href='/lecture/enroll';</script>",
             );
         }
         
@@ -320,6 +350,12 @@ router.post("/disposable-attend", (req, res) => {
 });
 
 router.get("/jongkang/:lec_code", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const l_code = req.params.lec_code;
     const a_code = req.session.a_code;
     console.log(l_code);
@@ -341,13 +377,19 @@ router.get("/jongkang/:lec_code", (req, res) => {
         } else {
             console.log("수강 신청 실패!");
             return res.send(
-                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/enroll-lecture';</script>",
+                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/lecture/enroll';</script>",
             );
         }
     });
 });
 
 router.get("/disposable", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const db = new sqlite3.Database("./DB.db");
     let l_code = generateRandomString(6);
 

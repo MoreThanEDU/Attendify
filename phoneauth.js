@@ -43,6 +43,9 @@ function vali_pw(pw) {
 
 const messageService = new coolsms(process.env.API_KEY, process.env.API_SECRET);
 router.get('/account/find', (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     var html = template.HTML('findaccount', `
     <h1>아이디/비밀번호 변경하기</h1>
     <form action="/request-code-find" method="POST">
@@ -61,6 +64,9 @@ router.get('/account/find', (req, res) => {
 });
 
 router.get('/account/success/:id', (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     const id = req.params.id;
     var html = template.HTML('success', `
     <h1>비밀번호 재설정 성공!</h1>
@@ -70,6 +76,9 @@ router.get('/account/success/:id', (req, res) => {
 });
 
 router.get('/account/blocked', (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     var html = template.HTML('success', `
     <h1>접근이 차단되었습니다.</h1>
     <p>인증번호 요청이 너무 많아 차단되었습니다. 일주일 뒤 시도하세요.</p>
@@ -78,6 +87,9 @@ router.get('/account/blocked', (req, res) => {
 });
 
 router.post('/request-code-find', async (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     const phone = req.body.phone;
     const ipv6 = req.socket.remoteAddress;
     const clientIp = ipv6.includes('::ffff:') ? ipv6.split('::ffff:')[1] : ipv6;
@@ -129,6 +141,9 @@ router.post('/request-code-find', async (req, res) => {
 
 // 2. 인증 코드 확인 처리
 router.post('/verify-code', async (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     const db = new sqlite.Database("./DB.db");
     console.log(req.sessionID);
     const code = req.body.code;
@@ -167,6 +182,9 @@ router.post('/verify-code', async (req, res) => {
 
 // 비밀번호 재설정 페이지
 router.get('/account/reset-password', (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     if (!req.session.userId) {
         return res.redirect('/account/find');
     }
@@ -185,6 +203,9 @@ router.get('/account/reset-password', (req, res) => {
 
 // 비밀번호 재설정 처리
 router.post('/account/reset-password', (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     const newPassword = req.body['new-password'];
     const userId = req.session.userId;
 

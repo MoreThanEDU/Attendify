@@ -95,7 +95,6 @@ function generateQRcode() {
     });
 }
 
-
 cron.schedule("0 0 * * *", () => {
     console.log("Running account deletion job...");
     deleteExpiredAccounts();
@@ -129,7 +128,7 @@ app.use(lecture);
 
 app.get("/", (req, res) => {
     if (!req.session.is_logined) {
-        return res.redirect("/login");
+        return res.redirect("/account/login");
     }
     res.redirect("/main");
 });
@@ -189,10 +188,10 @@ app.get("/main", (req, res) => {
                     "Attendify",
                     `
                     <h2>계정 삭제가 요청되었습니다</h2>
-                    <form action="/cancel-delete" method="get">
+                    <form action="/account/cancel-delete" method="get">
                         <center><input class="btn" type="submit" value="계정 삭제 철회하기"></center>
                     </form>
-                    <form action="/logout" method="get">
+                    <form action="/account/logout" method="get">
                         <center><input class="btn" type="submit" value="로그아웃하기"></center>
                     </form>
                     <p>본인 요청이 아니라면 비밀번호를 변경해주세요.<br><a href="/">변경하러 가기</a></p>
@@ -341,6 +340,7 @@ app.get("/lecture/:l_code", (req, res) => {
     if (req.session.t_s === "s") {
         return res.send('<script>alert("잘못된 접근입니다.");history.back();</script>');
     }
+
     const lec_code = req.params.l_code;
     const db = new sqlite3.Database("./DB.db");
 
@@ -457,7 +457,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                 const button = document.getElementById('attendify');
                                                 const qrframe = document.getElementById('qrcodeframe');
         
-                                                qrframe.src = "/qrcode/${lec_code}/" + "1" + "/" + generateRandomString(50) + "/" + "0" ;
+                                                qrframe.src = "/lecture/qrcode/${lec_code}/" + "1" + "/" + generateRandomString(50) + "/" + "0" ;
             
                                                 function generateRandomString(length) {
                                                     const characters =
@@ -532,7 +532,7 @@ app.get("/lecture/:l_code", (req, res) => {
             
                                                 function revealqrcode(cha) {
                                                     //몇차 출첵인지 입력받고 QR생성
-                                                    qrframe.src = "/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
+                                                    qrframe.src = "/lecture/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
                                                     button.innerText = "출석체크 중단";
                                                     chasu = cha;
                                                     document.getElementById("chaselect").style.display = "none";
@@ -545,7 +545,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                             button.innerText = "출석체크 중단";
                                                         }
                                                         else {
-                                                            qrframe.src = "/finish/${lec_code}/" + document.getElementById('sessionDropdown').value + "/no";
+                                                            qrframe.src = "/lecture/finish/${lec_code}/" + document.getElementById('sessionDropdown').value + "/no";
                                                             button.innerText = "출석체크 시작";
                                                         }
                                                     }
@@ -554,7 +554,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                             document.getElementById("chaselect").style.display = "flex";
                                                         }
                                                         else {
-                                                            qrframe.src = "/finish/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + chasu;
+                                                            qrframe.src = "/lecture/finish/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + chasu;
                                                             button.innerText = "출석체크 시작";
                                                         }
                                                     }
@@ -652,7 +652,7 @@ app.get("/lecture/:l_code", (req, res) => {
         
                                             function revealqrcode(cha) {
                                                 //몇차 출첵인지 입력받고 QR생성
-                                                qrframe.src = "/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
+                                                qrframe.src = "/lecture/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
                                                 button.innerText = "출석체크 중단";
                                                 document.getElementById("chaselect").style.display = "none";
                                             }
@@ -664,7 +664,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                         button.innerText = "출석체크 중단";
                                                     }
                                                     else {
-                                                        qrframe.src = "/finish/${lec_code}";
+                                                        qrframe.src = "/lecture/finish/${lec_code}";
                                                         button.innerText = "출석체크 시작";
                                                     }
                                                 }
@@ -673,7 +673,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                         document.getElementById("chaselect").style.display = "flex";
                                                     }
                                                     else {
-                                                        qrframe.src = "/finish/${lec_code}";
+                                                        qrframe.src = "/lecture/finish/${lec_code}";
                                                         button.innerText = "출석체크 시작";
                                                     }
                                                 }
@@ -731,7 +731,13 @@ app.get("/lecture/:l_code", (req, res) => {
     );
 });
 
-app.get("/qrcode/:l_code/:session/:randomstring/:cha", async (req, res) => {
+app.get("/lecture/qrcode/:l_code/:session/:randomstring/:cha", async (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const l_code = req.params.l_code;
     const session = req.params.session;
     const random = req.params.randomstring;
@@ -758,19 +764,34 @@ app.get("/qrcode/:l_code/:session/:randomstring/:cha", async (req, res) => {
 });
 
 app.get("/attendify", (req, res) => {
-    if (!req.session.username) {
-        res.send("<script>alert('로그인을 해주세요.');location.href='/login'</script>"); //오류수정
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "t") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
     }
     const html = qrtemplate.HTML();
     res.send(html);
 });
 
 app.get("/showtext/:text", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const text = req.params.text;
     res.send(`<center><h1 style="font-size: 30pt;margin-top: 100px;">${text}</h1></center>`);
 });
 
-app.get("/finish/:l_code/:session/:cha", async (req, res) => {
+app.get("/lecture/finish/:l_code/:session/:cha", async (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const l_code = req.params.l_code;
     const session = req.params.session;
     const cha = req.params.cha;
@@ -877,6 +898,9 @@ app.get("/finish/:l_code/:session/:cha", async (req, res) => {
 });
 
 app.post("/attend", async (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     const db = new sqlite3.Database("./DB.db");
     const { random } = req.body;
     const value = await redis.get(random);
@@ -1028,6 +1052,12 @@ app.post("/attend", async (req, res) => {
 
 // SSE 엔드포인트 추가 (실시간 출석 데이터 전송)
 app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const lec_code = req.params.l_code;
     const sessionNumber = req.params.session;
     const db = new sqlite3.Database("./DB.db");
@@ -1108,6 +1138,12 @@ app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
 });
 
 app.get("/disposableatd/sse/:l_code", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const lec_code = req.params.l_code;
     const db = new sqlite3.Database("./DB.db");
     res.setHeader("Content-Type", "text/event-stream");
@@ -1154,6 +1190,12 @@ app.get("/disposableatd/sse/:l_code", (req, res) => {
 });
 
 app.get("/disposableatd/:l_code/", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const db = new sqlite3.Database("./DB.db");
     const l_code = req.params.l_code;
     db.all(
@@ -1253,6 +1295,12 @@ app.get("/disposableatd/:l_code/", (req, res) => {
 
 // 출석 리스트 페이지
 app.get("/attendancelist/:l_code/:session", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const lec_code = req.params.l_code;
     const sessionNumber = req.params.session;
     const db = new sqlite3.Database("./DB.db");
@@ -1427,6 +1475,12 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
 });
 
 app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const lec_code = req.params.lec_code;
     const session_code = req.params.session;
     const a_code = req.params.a_code;
@@ -1566,6 +1620,12 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
 });
 
 app.get("/nostatus/:lec_code/:session/", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const lec_code = req.params.lec_code;
     const session_code = req.params.session;
     const db = new sqlite3.Database("./DB.db");
