@@ -15,7 +15,7 @@ module.exports = {
                         text-align: center;
                         margin: 0;
                         padding: 0;
-                        background: linear-gradient(135deg, #667eea, #764ba2);
+                        background: linear-gradient(to right, #10A99A, #AED56F);
                         color: white;
                         height: 100vh;
                         display: flex;
