@@ -155,8 +155,8 @@ module.exports = {
                     <div class="admin">
                         ${username}님
                         <div class="dropdown-menu">
-                            <a href="/delete-account">계정 삭제</a>
-                            <a href="/logout">로그아웃</a>
+                            <a href="/account/delete">계정 삭제</a>
+                            <a href="/account/logout">로그아웃</a>
                         </div>
                     </div>
                 </div>

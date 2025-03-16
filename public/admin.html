@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL 실행기</title>
+    <script>
+        async function executeQuery() {
+            const query = document.getElementById("sqlQuery").value;
+
+            const response = await fetch('/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `query=${encodeURIComponent(query)}`
+            });
+
+            const result = await response.json();
+            document.getElementById("result").innerText = JSON.stringify(result, null, 2);
+        }
+    </script>
+</head>
+<body>
+    <h2>SQL 실행기</h2>
+    <textarea id="sqlQuery" rows="5" cols="50" placeholder="여기에 SQL 입력"></textarea><br>
+    <button onclick="executeQuery()">실행</button>
+    <pre id="result"></pre>
+</body>
+</html>
