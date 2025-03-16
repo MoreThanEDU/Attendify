@@ -15,7 +15,12 @@ router.get("/account/login", (req, res) => {
         <input class="login" type="password" name="pw" placeholder="비밀번호">
         <center><input class="btn" type="submit" value="로그인하기"></center>
     </form>            
-    <p>아직 계정이 없으신가요? <a href="/signup">회원가입</a></p>
+    <p>아직 계정이 없으신가요? <a href="/account/signup">회원가입</a></p>
+    <p>계정을 잃어버리셨나요? <a href="/account/find">계정 찾기</a></p>
+    <script>
+        window.addEventListener("wheel", (event) => event.preventDefault(), { passive: false });
+        window.addEventListener("touchmove", (event) => event.preventDefault(), { passive: false });
+    </script>
     `,
     );
     res.send(html);
