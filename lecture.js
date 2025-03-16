@@ -149,7 +149,7 @@ router.post("/lec_create", (req, res) => {
 
                 // 테이블 생성 후 INSERT 실행
                 db.run(
-                    `INSERT INTO ${l_code} (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
+                    `INSERT INTO "${l_code}" (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
                     [1, "", "", "", ""],
                     (err) => {
                         if (err) {
@@ -233,7 +233,6 @@ router.get("/newsession/:lec_code", (req, res) => {
     });
 });
 
-<<<<<<< HEAD
 router.get("/statistics/:lec_code", (req, res) => {
     const db = new sqlite3.Database("./DB.db");
     const l_code = req.params.lec_code;
@@ -422,12 +421,6 @@ router.get("/statistics/:lec_code", (req, res) => {
 });
 
 router.get("/enroll-lecture", (req, res) => {
-=======
-router.get("/lecture/enroll", (req, res) => {
-    if (!req.session.is_logined) {
-        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
-    }
->>>>>>> develop
     if (req.session.t_s === "s") {
         var html = template.HTML("lecture", `
         <h2>수강 신청</h2>
@@ -448,7 +441,7 @@ router.post("/lec_enroll", (req, res) => {
     if (!req.session.is_logined) {
         return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
     }
-    if (req.session.t_s == "s") {
+    if (req.session.t_s == "t") {
         return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
     }
     const l_code = req.body.lec_name;

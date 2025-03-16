@@ -252,7 +252,7 @@ app.get("/main", (req, res) => {
                                     <div class="top">
                                         <div class="title">진행중인 강좌</div>
                                         <div class="buttons">
-                                            <button type="button" onclick="location.href='/create-lecture'">강좌 생성하기</button>
+                                            <button type="button" onclick="location.href='/lecture/create'">강좌 생성하기</button>
                                         </div>
                                     </div>
                                     <div class="course-list">
@@ -313,24 +313,9 @@ app.get("/main", (req, res) => {
 
 
                                 const content = `
-<<<<<<< HEAD
                                 <div class="container">
                                     <div class="top">
                                         <div class="title">수강중인 강좌</div>
-=======
-                                <div class="container" style="display: flex; padding: 20px; gap: 20px">
-                                    <div class="left-panel">
-                                        <div class="title">진행중인 강좌</div>
-                                        <div class="course-list">
-                                            ${courseItems}
-                                        </div>
-                                        <div class="title" style="margin-top: 30px;">종강된 강좌</div>
-                                        <div class="course-list">
-                                            ${courseDone}
-                                        </div>
-                                    </div>
-                                    <div class="right-panel">
->>>>>>> develop
                                         <div class="buttons">
                                             <button onclick="location.href='/attendify'">출석체크하기</button>
                                             <button type="button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
@@ -475,7 +460,6 @@ app.get("/lecture/:l_code", (req, res) => {
                                                     </div></center>
                                                 </div>
                                             </div>
-<<<<<<< HEAD
         
                                             <div class="modal-overlay" id="chaselect">
                                                 <div class="modal">
@@ -557,12 +541,6 @@ app.get("/lecture/:l_code", (req, res) => {
         
                                                 return result;
                                             }
-=======
-                                            <script>
-                                                const at_cnt = ${at_cnt};
-                                                const button = document.getElementById('attendify');
-                                                const qrframe = document.getElementById('qrcodeframe');
->>>>>>> develop
                                                 
                                                 qrframe.src = "/lecture/qrcode/${lec_code}/" + "1" + "/" + generateRandomString(50) + "/" + "0" ;
             
