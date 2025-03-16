@@ -343,7 +343,7 @@ app.get("/generateqrcode", (req, res) => {
 
 app.get("/lecture/:l_code", (req, res) => {
     if (!req.session.is_logined) {
-        return res.redirect("/login");
+        return res.redirect("/account/login");
     }
     if (req.session.t_s === "s") {
         return res.send('<script>alert("잘못된 접근입니다.");history.back();</script>');
@@ -600,7 +600,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                     <div class="buttons">
                                                         <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
                                                         <button onclick="changestatusno();">미출석으로 변경</button>
-                                                        <button>출석 통계 확인</button>
+                                                        <button onclick="location.href='/statistics/${lec_code}'">출석 통계 확인</button>
                                                         <button id='attendify' onclick="selectcha();">출석체크 시작</button>
                                                         <button onclick="deleteclass();">수업 종강하기</button>
                                                     </div>
@@ -735,7 +735,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                             
                                             <div class="right-panel">
                                                 <div class="buttons">
-                                                    <button>출석 통계 확인</button>
+                                                    <button onclick="location.href='/statistics/${lec_code}'">출석 통계 확인</button>
                                                 </div>
                                                 <center><div class="qrcode" id="qrcode">
                                                     <iframe id="qrcodeframe" width="470px" height="550" style="overflow-x: hidden; border: none;"></iframe>
