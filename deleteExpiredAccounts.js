@@ -7,7 +7,7 @@ function deleteExpiredAccounts() {
     ).toISOString();
 
     db.run(
-        "DELETE FROM Users WHERE delete_requested_at <= ?",
+        "DELETE FROM Users WHERE bigo IS NOT NULL AND bigo != '' AND datetime(bigo) < datetime(?)",
         [weekAgo],
         (err) => {
             if (err) {
@@ -15,8 +15,8 @@ function deleteExpiredAccounts() {
             } else {
                 console.log("Expired accounts deleted successfully.");
             }
-        },
-    );
+        }
+    );    
     db.close();
 }
 

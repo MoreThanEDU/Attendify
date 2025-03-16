@@ -29,13 +29,6 @@ module.exports = {
                         color: white;
                     }
             
-                    .header .admin {
-                        display: flex;
-                        align-items: center;
-                        color: white;
-                        font-weight: bold;
-                    }
-            
                     .header .admin .circle {
                         width: 20px;
                         height: 20px;
@@ -46,12 +39,24 @@ module.exports = {
             
                     .container {
                         padding: 20px;
+                        display: flex;
+                        flex-direction: column;
                     }
-            
+
+                    .top {
+                        display: flex;
+                        flex-direction: row;
+                        justify-content: space-between;
+                        margin-bottom: 20px;
+                    }
+
                     .title {
                         font-size: 20px;
                         font-weight: bold;
-                        margin-bottom: 15px;
+                        display : flex;
+                        justify-content : center;
+                        align-items : center;
+                        float: left
                     }
             
                     .course-list {
@@ -70,21 +75,91 @@ module.exports = {
                         cursor: pointer;
                         transition: 0.3s;
                     }
+
+                    .course-item-done {
+                        background-color:rgb(177, 177, 177);
+                        padding: 15px;
+                        border-radius: 8px;
+                        color: white;
+                        font-weight: bold;
+                        text-align: left;
+                        cursor: pointer;
+                        transition: 0.3s;
+                    }
             
                     .course-item:hover {
                         opacity: 0.8;
                     }
+
+                    .buttons {
+                        float: right
+                    }
+
+                    .buttons button {
+                        padding: 10px;
+                        font-size: 14px;
+                        border: none;
+                        background: #ccc;
+                        margin: 5px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                    }
+                    
+                    .dropdown-menu {
+                        display: none;
+                        position: absolute;
+                        top: 100%;
+                        left: 0;
+                        background: white;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+                        min-width: 120px;
+                        overflow: hidden;
+                        z-index: 1000;
+                    }
+
+                    .dropdown-menu a {
+                        display: block;
+                        padding: 10px;
+                        text-decoration: none;
+                        color: #333;
+                        font-size: 14px;
+                    }
+
+                    .dropdown-menu a:hover {
+                        background: #f5f5f5;
+                    }
+
+                    /* 마우스를 올리면 드롭다운 표시 */
+                    .admin:hover .dropdown-menu {
+                        display: block;
+                    }
+
+                    .header .admin {
+                        position: relative;
+                        display: inline-block;
+                        padding: 10px;
+                        cursor: pointer;
+                        color: white;
+                        font-weight: bold;
+                    }
+
                 </style>
             </head>
             <body>
-            
                 <div class="header">
-                    <img style="width: 225px;" src="/static/img/attendify_logo_white.png">
+                    <a href="/main">
+                        <img style="width: 225px;" src="/static/img/attendify_logo_white.png">
+                    </a>
                     <div class="admin">
                         ${username}님
+                        <div class="dropdown-menu">
+                            <a href="/delete-account">계정 삭제</a>
+                            <a href="/logout">로그아웃</a>
+                        </div>
                     </div>
                 </div>
-
                 ${body}
             </body>
             </html>
