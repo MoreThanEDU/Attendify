@@ -9,35 +9,79 @@ module.exports = {
                 <title>QR 코드 스캐너</title>
                 <script src="https://unpkg.com/html5-qrcode"></script>
                 <style>
+                    /* 기본 스타일 */
                     body {
-                        font-family: Arial, sans-serif;
+                        font-family: "Noto Sans KR", sans-serif;
                         text-align: center;
-                        margin: 20px;
+                        margin: 0;
+                        padding: 0;
+                        background: linear-gradient(135deg, #667eea, #764ba2);
+                        color: white;
+                        height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
                     }
+
+                    h1 {
+                        font-size: 28px;
+                        margin-bottom: 15px;
+                        text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.2);
+                    }
+
                     #reader {
                         width: 100%;
-                        max-width: 400px;
-                        margin: auto;
+                        max-width: 350px;
+                        height: 350px;
+                        background: white;
+                        border-radius: 15px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2);
+                        margin-bottom: 15px;
+                        overflow: hidden;
                     }
+
                     #result {
                         font-size: 18px;
-                        margin-top: 10px;
                         font-weight: bold;
+                        background: rgba(255, 255, 255, 0.2);
+                        padding: 10px;
+                        border-radius: 10px;
+                        width: 90%;
+                        max-width: 350px;
+                        backdrop-filter: blur(10px);
+                        margin-bottom: 10px;
                     }
+
                     button {
                         margin-top: 15px;
-                        padding: 10px 15px;
+                        padding: 12px 20px;
                         font-size: 16px;
+                        font-weight: bold;
                         cursor: pointer;
+                        background: #ff6b81;
+                        color: white;
+                        border: none;
+                        border-radius: 25px;
+                        transition: 0.3s;
+                        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.15);
+                    }
+
+                    button:hover {
+                        background: #ff4757;
+                        transform: scale(1.05);
                     }
                 </style>
             </head>
             <body>
 
-                <h1>QR 코드 스캐너</h1>
+                <h1>출석체크하기</h1>
                 <div id="reader"></div>
-                <p id="result">QR 코드를 스캔하세요...</p>
-                <button onclick="stopScanner()">스캔 중지</button>
+                <p id="result">화면의 QR 코드를 스캔하세요</p>
+                <button onclick="location.href='/main'">돌아가기</button>
 
                 <script>
                     let scanner;
@@ -71,13 +115,14 @@ module.exports = {
                                 console.log("🔹 감지된 카메라 목록:", devices); // 카메라 목록 출력
 
                                 if (devices && devices.length) {
-                                    // "front" 또는 "전면"이 포함된 카메라 찾기 (한국어/영어 대응)
-                                    let frontCamera = devices.find(device => 
-                                        device.label.toLowerCase().includes("front") || 
-                                        device.label.includes("전면")
+                                    // "back" 또는 "후면"이 포함된 카메라 찾기
+                                    let backCamera = devices.find(device => 
+                                        device.label.toLowerCase().includes("back") || 
+                                        device.label.includes("후면")
                                     );
 
-                                    let selectedCamera = frontCamera ? frontCamera.id : devices[0].id; // 없으면 기본 카메라 선택
+                                    // 후면 카메라가 없으면 첫 번째 카메라 사용
+                                    let selectedCamera = backCamera ? backCamera.id : devices[0].id;
                                     
                                     console.log("📷 선택된 카메라:", selectedCamera);
 
@@ -98,6 +143,7 @@ module.exports = {
                                 alert("카메라에 접근할 수 없습니다. 브라우저 설정을 확인하세요.");
                             });
                     }
+
 
 
 
