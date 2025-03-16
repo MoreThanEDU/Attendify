@@ -43,9 +43,6 @@ function vali_pw(pw) {
 
 const messageService = new coolsms(process.env.API_KEY, process.env.API_SECRET);
 router.get('/account/find', (req, res) => {
-    if (!req.session.is_logined) {
-        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
-    }
     var html = template.HTML('findaccount', `
     <h1>아이디/비밀번호 변경하기</h1>
     <form action="/request-code-find" method="POST">

@@ -162,7 +162,7 @@ app.get('/admin', (req, res) => {
 app.get("/main", (req, res) => {
     console.log(req.sessionID);
     if (!req.session.is_logined) {
-        return res.redirect("/login");
+        return res.redirect("/account/login");
     }
 
     let db = new sqlite3.Database("./DB.db");
@@ -456,7 +456,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                 const at_cnt = ${at_cnt};
                                                 const button = document.getElementById('attendify');
                                                 const qrframe = document.getElementById('qrcodeframe');
-        
+                                                
                                                 qrframe.src = "/lecture/qrcode/${lec_code}/" + "1" + "/" + generateRandomString(50) + "/" + "0" ;
             
                                                 function generateRandomString(length) {
@@ -529,6 +529,18 @@ app.get("/lecture/:l_code", (req, res) => {
                                                 const button = document.getElementById('attendify');
                                                 const qrframe = document.getElementById('qrcodeframe');
                                                 let chasu = "";
+
+                                                function isMobile() {
+                                                    return /iPhone|iPad|iPod|Android|BlackBerry|Windows Phone/i.test(navigator.userAgent);
+                                                }
+
+                                                if (isMobile()) {
+                                                    document.getElementsByClassName('left-panel')[0].style.width = "100%";
+                                                    document.getElementsByClassName('right-panel')[0].style.display = "none";
+                                                    document.getElementById('attendanceFrame').style.width = "100%";
+                                                    document.getElementsByClassName('buttons')[0].style.display = "none";
+                                                    qrframe.style.display = "none";
+                                                }
             
                                                 function revealqrcode(cha) {
                                                     //몇차 출첵인지 입력받고 QR생성
@@ -649,6 +661,13 @@ app.get("/lecture/:l_code", (req, res) => {
                                             const at_cnt = ${at_cnt};
                                             const button = document.getElementById('attendify');
                                             const qrframe = document.getElementById('qrcodeframe');
+                                            function isMobile() {
+                                                return /iPhone|iPad|iPod|Android|BlackBerry|Windows Phone/i.test(navigator.userAgent);
+                                            }
+
+                                            if (isMobile()) {
+                                                qrframe.style.display = "none";
+                                            }
         
                                             function revealqrcode(cha) {
                                                 //몇차 출첵인지 입력받고 QR생성
