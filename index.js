@@ -233,7 +233,7 @@ app.get("/main", (req, res) => {
                         
                                 // end 값이 "delete"가 아닌 경우만 포함
                                 const courseItems = rows
-                                    .filter(row => row.end !== "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
+                                    .filter(row => row.end !== "delete" && row.at_cnt != "0") // ✅ AND 조건으로 수정
                                     .map(
                                         (row) =>
                                             `<div class="course-item" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
@@ -241,7 +241,7 @@ app.get("/main", (req, res) => {
                                     .join("");
 
                                 const courseDone = rows
-                                    .filter(row => row.end == "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
+                                    .filter(row => row.end === "delete" && row.at_cnt != "0") // ✅ AND 조건으로 수정
                                     .map(
                                         (row) =>
                                             `<div class="course-item-done" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
@@ -286,11 +286,11 @@ app.get("/main", (req, res) => {
                         const a_code = row.a_code;
 
                         db.all(
-                            `SELECT lec_name, l_code FROM lecture WHERE s_a_code LIKE ?`,
+                            `SELECT lec_name, l_code, at_cnt FROM lecture WHERE s_a_code LIKE ?`,
                             [`%${a_code}%`],
                             (err, rows) => {
                                 const courseItems = rows
-                                    .filter(row => row.end !== "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
+                                    .filter(row => row.end !== "delete" && row.at_cnt !== "0") // ✅ AND 조건으로 수정
                                     .map(
                                         (row) =>
                                             `<div class="course-item" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
@@ -298,12 +298,13 @@ app.get("/main", (req, res) => {
                                     .join("");
 
                                 const courseDone = rows
-                                    .filter(row => row.end == "delete" || row.at_cnt !== "0") // 🚨 여기 추가!
+                                    .filter(row => row.end === "delete" && row.at_cnt !== "0") // ✅ AND 조건으로 수정
                                     .map(
                                         (row) =>
                                             `<div class="course-item-done" onclick="location.href='/lecture/${row.l_code}'">${row.lec_name}</div>`
                                     )
                                     .join("");
+
 
                                 const content = `
                                 <div class="container">
@@ -456,23 +457,6 @@ app.get("/lecture/:l_code", (req, res) => {
                                                     <!-- 출석 리스트를 표시할 iframe -->
                                                     <iframe id="attendanceFrame" src="/disposableatd/${lec_code}" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
                                                 </div>
-            
-                                                <div class="modal-overlay" id="modalOverlay">
-                                                    <div class="modal">
-                                                        <p>종강 처리 하시겠습니까?</p>
-                                                        <button class="cancel" onclick="jongkang();">종강</button>
-                                                        <button class="confirm" onclick="document.getElementById('modalOverlay').style.display = 'none';">취소</button>
-                                                    </div>
-                                                </div>
-            
-                                                <div class="modal-overlay" id="chaselect">
-                                                    <div class="modal">
-                                                        <p>출석체크할 회차를 선택해주세요.</p>
-                                                        <button class="confirm" onclick="revealqrcode('1');">1차</button>
-                                                        <button class="confirm" onclick="revealqrcode('2')">2차</button>
-                                                        <button class="cancel" onclick="document.getElementById('chaselect').style.display = 'none';">취소</button>
-                                                    </div>
-                                                </div>
                                                 
                                                 <div class="right-panel">
                                                     <div class="buttons">
@@ -502,19 +486,6 @@ app.get("/lecture/:l_code", (req, res) => {
                                                     }
             
                                                     return result;
-                                                }
-                                                    
-                                                function changestatusno() {
-                                                    location.href='/nostatus/${lec_code}/' + document.getElementById('sessionDropdown').value;
-                                                }
-                                                
-                                                function deleteclass() {
-                                                    document.getElementById("modalOverlay").style.display = "flex";
-                                                }
-            
-                                                function jongkang() {
-                                                    document.getElementById("modalOverlay").style.display = "none";
-                                                    location.href='/jongkang/${lec_code}/';
                                                 }
                                             </script>
                                             `,

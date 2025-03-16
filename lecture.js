@@ -406,7 +406,7 @@ router.get("/disposable", (req, res) => {
                 } else {
                     console.log("데이터 삽입 성공!");
                     return res.send(
-                        "<script>alert('강좌가 생성되었습니다.');location.href='/main'</script>",
+                        `<script>alert('강좌가 생성되었습니다.');location.href='/lecture/${l_code}'</script>`,
                     );
                 }
             },
