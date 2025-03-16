@@ -334,20 +334,6 @@ app.get("/generateqrcode", (req, res) => {
     generateQRcode();
 });
 
-/**app.get("/lecture/disposable/:l_code", (req, res) => {
-    if (!req.session.is_logined) {
-        return res.redirect("/login");
-    }
-    if (req.session.t_s === "s") {
-        return res.send('<script>alert("잘못된 접근입니다.");history.back();</script>');
-    }
-    const lec_code = req.params.l_code;
-    const db = new sqlite3.Database("./DB.db");
-    db.get(
-        `SELECT lec_name, s_a_code, t_a_code, at_cnt FROM lecture WHERE l_code = ?`, [lec_code], (err, result) => {
-            dc
-    });**/
-
 app.get("/lecture/:l_code", (req, res) => {
     if (!req.session.is_logined) {
         return res.redirect("/login");
@@ -542,11 +528,13 @@ app.get("/lecture/:l_code", (req, res) => {
                                                 const at_cnt = ${at_cnt};
                                                 const button = document.getElementById('attendify');
                                                 const qrframe = document.getElementById('qrcodeframe');
+                                                let chasu = "";
             
                                                 function revealqrcode(cha) {
                                                     //몇차 출첵인지 입력받고 QR생성
                                                     qrframe.src = "/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
                                                     button.innerText = "출석체크 중단";
+                                                    chasu = cha;
                                                     document.getElementById("chaselect").style.display = "none";
                                                 }
                                                 
@@ -557,7 +545,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                             button.innerText = "출석체크 중단";
                                                         }
                                                         else {
-                                                            qrframe.src = "";
+                                                            qrframe.src = "/finish/${lec_code}/" + document.getElementById('sessionDropdown').value + "/no";
                                                             button.innerText = "출석체크 시작";
                                                         }
                                                     }
@@ -566,7 +554,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                             document.getElementById("chaselect").style.display = "flex";
                                                         }
                                                         else {
-                                                            qrframe.src = "";
+                                                            qrframe.src = "/finish/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + chasu;
                                                             button.innerText = "출석체크 시작";
                                                         }
                                                     }
@@ -676,7 +664,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                         button.innerText = "출석체크 중단";
                                                     }
                                                     else {
-                                                        qrframe.src = "";
+                                                        qrframe.src = "/finish/${lec_code}";
                                                         button.innerText = "출석체크 시작";
                                                     }
                                                 }
@@ -685,7 +673,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                         document.getElementById("chaselect").style.display = "flex";
                                                     }
                                                     else {
-                                                        qrframe.src = "";
+                                                        qrframe.src = "/finish/${lec_code}";
                                                         button.innerText = "출석체크 시작";
                                                     }
                                                 }
@@ -748,7 +736,6 @@ app.get("/qrcode/:l_code/:session/:randomstring/:cha", async (req, res) => {
     const session = req.params.session;
     const random = req.params.randomstring;
     const cha = req.params.cha;
-    const db = new sqlite3.Database("./DB.db");
     QRCode.toDataURL(random,  {width: 450}, (err, url) => {
         const data = url.replace(/.*,/, "");
         const img = new Buffer.from(data, "base64");
@@ -781,6 +768,112 @@ app.get("/attendify", (req, res) => {
 app.get("/showtext/:text", (req, res) => {
     const text = req.params.text;
     res.send(`<center><h1 style="font-size: 30pt;margin-top: 100px;">${text}</h1></center>`);
+});
+
+app.get("/finish/:l_code/:session/:cha", async (req, res) => {
+    const l_code = req.params.l_code;
+    const session = req.params.session;
+    const cha = req.params.cha;
+    const db = new sqlite3.Database("./DB.db");
+    db.get(
+        `SELECT at_cnt FROM lecture WHERE l_code = ?`,
+        [l_code],
+        (err, lecRow) => {
+            if (err) return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
+            if (!lecRow) return res.status(404).send("<script>alert('강좌 없음');history.back();</script>");
+            const at_cnt = lecRow.at_cnt;
+            if (at_cnt == 2) {
+                db.get(`SELECT s_a_code FROM lecture WHERE l_code = "${l_code}"`,
+                    (err, sessionData) => {
+                        const studentlist = sessionData.s_a_code.split("/").filter(item => item.trim() !== "");
+                        db.get(
+                            `SELECT o_1, x_1, o_2, x_2 FROM "${l_code}" WHERE session = ?`,
+                            [session],
+                            (err, sessionData) => {
+                                if (err) {
+                                    console.error("쿼리 실행 오류: ", err.message);
+                                }
+        
+                                let o1Array = sessionData.o_1.split("/").filter(item => item.trim() !== "");
+                                let x1Array = sessionData.x_1.split("/").filter(item => item.trim() !== "");
+                                let o2Array = sessionData.o_2.split("/").filter(item => item.trim() !== "");
+                                let x2Array = sessionData.x_2.split("/").filter(item => item.trim() !== "");
+                                if (cha == 1) {
+                                    const attendst = [...o1Array, ...x1Array];
+                                    const noattend = studentlist.filter(item => !attendst.includes(item)).join("/");
+                                    console.log(studentlist);
+                                    console.log(o1Array);
+                                    console.log(x1Array);
+                                    console.log(attendst);
+                                    console.log(noattend);
+                                    db.run(
+                                        `UPDATE "${l_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
+                                        [o1Array.join("/"), noattend, o2Array.join("/"), x2Array.join("/"), session],
+                                        (err) => {
+                                            if (err) {
+                                                console.error("업데이트 오류: ", err.message);
+                                            }
+                        
+                                            console.log("출석체크 완료됨");
+                                        }
+                                    );
+                                } else if (cha == 2) {
+                                    const attendst = o2Array.concat(x2Array);
+                                    const noattend = studentlist.filter(item => !attendst.includes(item)).join("/");
+                                    db.run(
+                                        `UPDATE "${l_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
+                                        [o1Array.join("/"), x1Array.join("/"), o2Array.join("/"), noattend, session],
+                                        (err) => {
+                                            if (err) {
+                                                console.error("업데이트 오류: ", err.message);
+                                            }
+                        
+                                            console.log("출석체크 완료됨");
+                                        }
+                                    );
+                                }
+                            }
+                        );
+                });
+            }
+            if (at_cnt == 1) {
+                db.get(`SELECT s_a_code FROM lecture WHERE l_code = "${l_code}"`,
+                    (err, sessionData) => {
+                        studentlist = sessionData.s_a_code.split("/").filter(item => item.trim() !== "");
+                });
+                db.get(
+                    `SELECT attend, late, absent FROM "${l_code}" WHERE session = ?`,
+                    [session],
+                    (err, sessionData) => {
+                        if (err) {
+                            console.error("쿼리 실행 오류: ", err.message);
+                        }
+            
+                        if (!sessionData) {
+                            console.log("해당 session의 데이터가 없습니다.");
+                        }
+            
+                        // 각 출석 상태를 '/'로 나누어 배열로 저장
+                        let attend = sessionData.attend.split("/").filter(item => item.trim() !== "");
+                        let late = sessionData.late.split("/").filter(item => item.trim() !== "");
+                        let absent = sessionData.absent.split("/").filter(item => item.trim() !== "");
+                        const attendst = attend.concat(late, absent);
+                        const noattend = studentlist.filter(item => !attendst.includes(item)).join("/");
+                        
+                        db.run(
+                            `UPDATE "${l_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
+                            [attend.join("/"), noattend, absent.join("/"), session],
+                            (err) => {
+                                if (err) {
+                                    console.error("업데이트 오류: ", err.message);
+                                }
+                            }
+                        );
+                    }
+                );
+            }
+        });
+        res.send(`<center><h1 style="font-size: 30pt;margin-top: 100px;">수업코드: ${l_code}</h1></center>`);
 });
 
 app.post("/attend", async (req, res) => {
