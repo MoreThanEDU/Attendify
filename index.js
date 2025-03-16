@@ -306,14 +306,22 @@ app.get("/main", (req, res) => {
 
 
                                 const content = `
-                                <div class="container">
-                                    <div class="title">진행중인 강좌</div>
-                                    <div class="course-list">
-                                        ${courseItems}
+                                <div class="container" style="display: flex; padding: 20px; gap: 20px">
+                                    <div class="left-panel">
+                                        <div class="title">진행중인 강좌</div>
+                                        <div class="course-list">
+                                            ${courseItems}
+                                        </div>
+                                        <div class="title" style="margin-top: 30px;">종강된 강좌</div>
+                                        <div class="course-list">
+                                            ${courseDone}
+                                        </div>
                                     </div>
-                                    <div class="title" style="margin-top: 30px;">종강된 강좌</div>
-                                    <div class="course-list">
-                                        ${courseDone}
+                                    <div class="right-panel">
+                                        <div class="buttons">
+                                            <button onclick="location.href='/attendify'">출석체크하기</button>
+                                            <button type="button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
+                                        </div>
                                     </div>
                                 </div>`;
 
