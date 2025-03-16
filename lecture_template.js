@@ -29,13 +29,6 @@ module.exports = {
                         color: white;
                     }
             
-                    .header .admin {
-                        display: flex;
-                        align-items: center;
-                        color: white;
-                        font-weight: bold;
-                    }
-            
                     .header .admin .circle {
                         width: 20px;
                         height: 20px;
@@ -199,6 +192,47 @@ module.exports = {
                         background: linear-gradient(45deg, #ff7eb3, #ff758c, #ff7eb3);
                         z-index: -1;
                     }
+
+                    .dropdown-menu {
+                        display: none;
+                        position: absolute;
+                        top: 100%;
+                        left: 0;
+                        background: white;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+                        min-width: 120px;
+                        overflow: hidden;
+                        z-index: 1000;
+                    }
+
+                    .dropdown-menu a {
+                        display: block;
+                        padding: 10px;
+                        text-decoration: none;
+                        color: #333;
+                        font-size: 14px;
+                    }
+
+                    .dropdown-menu a:hover {
+                        background: #f5f5f5;
+                    }
+
+                    /* 마우스를 올리면 드롭다운 표시 */
+                    .admin:hover .dropdown-menu {
+                        display: block;
+                    }
+
+                    .header .admin {
+                        position: relative;
+                        display: inline-block;
+                        padding: 10px;
+                        cursor: pointer;
+                        color: white;
+                        font-weight: bold;
+                    }
+
             </style>
             </head>
             <body>
@@ -208,6 +242,10 @@ module.exports = {
                     </a>
                     <div class="admin">
                         ${username}님
+                        <div class="dropdown-menu">
+                            <a href="/delete-account">계정 삭제</a>
+                            <a href="/logout">로그아웃</a>
+                        </div>
                     </div>
                 </div>
                 ${body}

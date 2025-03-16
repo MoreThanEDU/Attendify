@@ -4,6 +4,7 @@ var db = require("./DB.js");
 var template = require("./template.js");
 var sqlite3 = require("sqlite3").verbose();
 var session = require("express-session");
+var stat_template = require("./statistics_template.js");
 
 function generateRandomString(length) {
     const characters =
@@ -29,7 +30,7 @@ router.get("/lecture/create", (req, res) => {
             "lecture",
             `
         <h2>강좌 생성</h2>
-        <form action="/lec_enroll" method="post">
+        <form action="/lec_create" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
             <label><b>출석체크 횟수</b></label>
             <br>
@@ -178,7 +179,7 @@ router.get("/newsession/:lec_code", (req, res) => {
     }
     const db = new sqlite3.Database("./DB.db");
     const l_code = req.params.lec_code;
-    db.get("SELECT at_cnt FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+    db.get(`SELECT at_cnt FROM lecture WHERE l_code = ?`, [l_code], (err, row) => {
         if (!err) {
             const at_cnt = row.at_cnt;
             db.get(`SELECT session FROM ${l_code} WHERE ROWID = (SELECT MAX(ROWID) FROM ${l_code})`, [], (err, row) => {
@@ -232,22 +233,209 @@ router.get("/newsession/:lec_code", (req, res) => {
     });
 });
 
+<<<<<<< HEAD
+router.get("/statistics/:lec_code", (req, res) => {
+    const db = new sqlite3.Database("./DB.db");
+    const l_code = req.params.lec_code;
+
+    db.get(`SELECT lec_name, at_cnt FROM lecture WHERE l_code = ?`, [l_code], (err, row) => {
+        if (err) {
+            return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+        }
+        const l_name = row.lec_name;
+        const at_cnt = row.at_cnt;
+
+        if (at_cnt == 1) {
+            db.all(`SELECT * FROM ${l_code}`, (err, rows) => {
+                if (err) {
+                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                }
+
+                db.get(`SELECT s_a_code FROM lecture WHERE l_code = ?`, [l_code], (err, row) => {
+                    if (err) {
+                        return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                    }
+                    let students = row.s_a_code.split('/').filter(student => student !== "");
+                    let studentData = {};
+
+                    rows.forEach(row => {
+                        const { session } = row;
+                        let isEmptySession = true; // 해당 세션이 비었는지 확인
+
+                        // 출석 상태 처리
+                        ['attend', 'late', 'absent'].forEach(status => {
+                            let students_status = row[status] ? row[status].split('/').filter(student => student !== "") : [];
+                            if (students_status.length > 0) isEmptySession = false; // 하나라도 값이 있으면 false
+
+                            students_status.forEach(student => {
+                                if (!studentData[student]) {
+                                    studentData[student] = {};
+                                }
+                                if (!studentData[student][session]) {
+                                    studentData[student][session] = [];
+                                }
+                                if (!studentData[student][session].includes(status)) {
+                                    studentData[student][session].push(status);
+                                }
+                            });
+                        });
+
+                        // 만약 해당 세션의 모든 출석 데이터가 비어있다면 "미출석"으로 설정
+                        students.forEach(student => {
+                            if (!studentData[student]) {
+                                studentData[student] = {}; // 학생 데이터 초기화
+                            }
+                            if (!studentData[student][session] || studentData[student][session].length === 0) {
+                                studentData[student][session] = "미출석";
+                            } else {
+                                let statusString = studentData[student][session].toString();
+                                if (statusString === "attend") studentData[student][session] = "출석";
+                                else if (statusString === "early") studentData[student][session] = "조퇴";
+                                else if (statusString === "late") studentData[student][session] = "지각";
+                                else if (statusString === "absent") studentData[student][session] = "결석";
+                            }
+                        });
+                    });
+
+                    function processData(Data, callback) {
+                        let completedQueries = 0;
+                        let dataKeys = Object.keys(Data);
+
+                        if (dataKeys.length === 0) {
+                            return callback(Data);
+                        }
+
+                        dataKeys.forEach(datum => {
+                            db.get(`SELECT name, id FROM Users WHERE a_code = ?`, [datum], (err, rows2) => {
+                                if (err) {
+                                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                                }
+                                let datum_nameid = `${rows2.name}(${rows2.id})`;
+                                Data[datum_nameid] = Data[datum];
+                                delete Data[datum];
+
+                                completedQueries++;
+
+                                if (completedQueries === dataKeys.length) {
+                                    callback(Data);
+                                }
+                            });
+                        });
+                    }
+
+                    processData(studentData, function(studentData_final) {
+                        console.log(studentData_final);
+                        var html = stat_template.HTML(req.session.username, l_name, studentData_final);
+                        return res.send(html);
+                    });
+                });
+            });
+        }
+
+        if (at_cnt == 2) {
+            db.all(`SELECT * FROM ${l_code}`, (err, rows) => {
+                if (err) {
+                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                }
+
+                db.get(`SELECT s_a_code FROM lecture WHERE l_code = ?`, [l_code], (err, row) => {
+                    if (err) {
+                        return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                    }
+                    let students = row.s_a_code.split('/').filter(student => student !== "");
+                    let studentData = {};
+
+                    rows.forEach(row => {
+                        const { session } = row;
+                        let isEmptySession = true; // 해당 세션이 비었는지 확인
+
+                        // 출석 상태 처리
+                        ['o_1', 'x_1', 'o_2', 'x_2'].forEach(status => {
+                            let students_status = row[status] ? row[status].split('/').filter(student => student !== "") : [];
+                            if (students_status.length > 0) isEmptySession = false; // 하나라도 값이 있으면 false
+
+                            students_status.forEach(student => {
+                                if (!studentData[student]) {
+                                    studentData[student] = {};
+                                }
+                                if (!studentData[student][session]) {
+                                    studentData[student][session] = [];
+                                }
+                                if (!studentData[student][session].includes(status)) {
+                                    studentData[student][session].push(status);
+                                }
+                            });
+                        });
+
+                        // 만약 해당 세션의 모든 출석 데이터가 비어있다면 "미출석"으로 설정
+                        students.forEach(student => {
+                            if (!studentData[student]) {
+                                studentData[student] = {}; // 학생 데이터 초기화
+                            }
+                            if (!studentData[student][session] || studentData[student][session].length === 0) {
+                                studentData[student][session] = "미출석";
+                            } else {
+                                let statusString = studentData[student][session].toString();
+                                if (statusString === "o_1,o_2") studentData[student][session] = "출석";
+                                else if (statusString === "o_1,x_2") studentData[student][session] = "조퇴";
+                                else if (statusString === "x_1,o_2") studentData[student][session] = "지각";
+                                else if (statusString === "x_1,x_2") studentData[student][session] = "결석";
+                            }
+                        });
+                    });
+
+                    function processData(Data, callback) {
+                        let completedQueries = 0;
+                        let dataKeys = Object.keys(Data);
+
+                        if (dataKeys.length === 0) {
+                            return callback(Data);
+                        }
+
+                        dataKeys.forEach(datum => {
+                            db.get(`SELECT name, id FROM Users WHERE a_code = ?`, [datum], (err, rows2) => {
+                                if (err) {
+                                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                                }
+                                let datum_nameid = `${rows2.name}(${rows2.id})`;
+                                Data[datum_nameid] = Data[datum];
+                                delete Data[datum];
+
+                                completedQueries++;
+
+                                if (completedQueries === dataKeys.length) {
+                                    callback(Data);
+                                }
+                            });
+                        });
+                    }
+
+                    processData(studentData, function(studentData_final) {
+                        console.log(studentData_final);
+                        var html = stat_template.HTML(req.session.username, l_name, studentData_final);
+                        return res.send(html);
+                    });
+                });
+            });
+        }
+    });
+});
+
+router.get("/enroll-lecture", (req, res) => {
+=======
 router.get("/lecture/enroll", (req, res) => {
     if (!req.session.is_logined) {
         return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
     }
+>>>>>>> develop
     if (req.session.t_s === "s") {
-        var html = template.HTML(
-            "lecture",
-            `
+        var html = template.HTML("lecture", `
         <h2>수강 신청</h2>
         <form action="/lec_enroll" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
-            <input class="btn" type="submit" value="강좌 참여하기"></center>
+            <center><input class="btn" type="submit" value="강좌 참여하기"></center>
         </form>
-        `,
-            ""
-        );
+        `);
         return res.send(html);
     } else {
         return res.send(
