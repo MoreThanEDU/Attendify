@@ -68,7 +68,7 @@ const REQUEST_LIMIT = 2; // 5분에 2번
 const TOTAL_LIMIT = 10; // 총 10번
 
 // 회원가입 페이지
-router.get("/signup", (req, res) => {
+router.get("/account/signup", (req, res) => {
     const html = template.HTML("signup",`
     <h2>회원가입</h2>
     <form action="/request-code" method="post">
@@ -147,7 +147,7 @@ router.post("/request-code", async (req, res) => {
 });
 
 // 회원가입 처리
-router.post("/signup", async (req, res) => {
+router.post("/account/signup", async (req, res) => {
     const { name, id, password, password2, verificationCode, accountType } =
         req.body;
     const phone = req.session.phone;
@@ -214,7 +214,13 @@ router.post("/signup", async (req, res) => {
 });
 
 // 계정 삭제 요청 페이지
-router.get("/delete-account", (req, res) => {
+router.get("/account/delete", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const html = template.HTML(
         "delete-account",
         `
@@ -274,7 +280,7 @@ router.post("/delete-account", (req, res) => {
 });
 
 // 계정 삭제 요청 철회
-router.get("/cancel-delete", (req, res) => {
+router.get("/account/cancel-delete", (req, res) => {
     const userId = req.session.username;
 
     if (!userId) {

@@ -7,7 +7,7 @@ var session = require("express-session");
 const md5 = require("md5");
 
 // Login page
-router.get("/login", (req, res) => {
+router.get("/account/login", (req, res) => {
     var html = template.HTML("login",`
     <h2>로그인</h2>
     <form action="/login" method="post">
@@ -48,21 +48,24 @@ router.post("/login", (req, res) => {
                     );
                 } else {
                     res.send(`<script type="text/javascript">alert("로그인 정보가 일치하지 않습니다."); 
-                    document.location.href="/login";</script>`);
+                    document.location.href="/account/login";</script>`);
                 }
             },
         );
     } else {
         res.send(`<script type="text/javascript">alert("아이디와 비밀번호를 입력하세요!"); 
-        document.location.href="/login";</script>`);
+        document.location.href="/account/login";</script>`);
     }
 });
 
 // Logout process
-router.get("/logout", (req, res) => {
+router.get("/account/logout", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
     req.session.destroy((err) => {
         if (err) return res.send("<script>alert('로그아웃 중 오류가 발생했습니다.');history.back();</script>");
-        res.redirect("/login");
+        res.redirect("/account/login");
     });
 });
 
