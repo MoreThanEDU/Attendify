@@ -27,7 +27,7 @@ router.get("/create-lecture", (req, res) => {
             "lecture",
             `
         <h2>강좌 생성</h2>
-        <form action="/lec_enroll" method="post">
+        <form action="/lec_create" method="post">
             <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
             <label><b>출석체크 횟수</b></label>
             <br>
