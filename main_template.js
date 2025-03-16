@@ -29,13 +29,6 @@ module.exports = {
                         color: white;
                     }
             
-                    .header .admin {
-                        display: flex;
-                        align-items: center;
-                        color: white;
-                        font-weight: bold;
-                    }
-            
                     .header .admin .circle {
                         width: 20px;
                         height: 20px;
@@ -46,12 +39,24 @@ module.exports = {
             
                     .container {
                         padding: 20px;
+                        display: flex;
+                        flex-direction: column;
                     }
-            
+
+                    .top {
+                        display: flex;
+                        flex-direction: row;
+                        justify-content: space-between;
+                        margin-bottom: 20px;
+                    }
+
                     .title {
                         font-size: 20px;
                         font-weight: bold;
-                        margin-bottom: 15px;
+                        display : flex;
+                        justify-content : center;
+                        align-items : center;
+                        float: left
                     }
             
                     .course-list {
@@ -70,6 +75,7 @@ module.exports = {
                         cursor: pointer;
                         transition: 0.3s;
                     }
+
                     .course-item-done {
                         background-color:rgb(177, 177, 177);
                         padding: 15px;
@@ -85,20 +91,10 @@ module.exports = {
                         opacity: 0.8;
                     }
 
-                    .left-panel {
-                        flex: 1;
-                        width: 40%;
-                    }
-
-                    .right-panel {
-                        text-align: right;
-                        width: 60%;
-                    }
-
                     .buttons {
-                        margin-top: 10px;
+                        float: right
                     }
-            
+
                     .buttons button {
                         padding: 10px;
                         font-size: 14px;

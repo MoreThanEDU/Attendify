@@ -224,11 +224,18 @@ app.get("/main", (req, res) => {
                         
                                 const content = `
                                 <div class="container">
-                                    <div class="title">진행중인 강좌</div>
+                                    <div class="top">
+                                        <div class="title">진행중인 강좌</div>
+                                        <div class="buttons">
+                                            <button type="button" onclick="location.href='/create-lecture'">강좌 생성하기</button>
+                                        </div>
+                                    </div>
                                     <div class="course-list">
                                         ${courseItems}
                                     </div>
-                                    <div class="title" style="margin-top: 30px;">종강된 강좌</div>
+                                    <div class="top" style="margin-top: 30px;">
+                                        <div class="title">종강된 강좌</div>
+                                    </div>
                                     <div class="course-list">
                                         ${courseDone}
                                     </div>
@@ -274,16 +281,16 @@ app.get("/main", (req, res) => {
                                     .join("");
 
                                 const content = `
-                                <div class="container" style="display: flex; padding: 20px; gap: 20px">
-                                    <div class="left-panel">
+                                <div class="container">
+                                    <div class="top">
                                         <div class="title">수강중인 강좌</div>
-                                        <div class="course-list">${courseItems}</div>
-                                    </div>
-                                    <div class="right-panel">
                                         <div class="buttons">
                                             <button onclick="location.href='/attendify'">출석체크하기</button>
                                             <button type="button" onclick="location.href='/enroll-lecture'">강좌 참여하기</button>
                                         </div>
+                                    </div>
+                                    <div class="course-list">
+                                        ${courseItems}
                                     </div>
                                 </div>`;
 
@@ -297,7 +304,6 @@ app.get("/main", (req, res) => {
         }
     );
 });
-
 
 app.get("/generateqrcode", (req, res) => {
     generateQRcode();
@@ -436,7 +442,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                 <div class="buttons">
                                                     <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
                                                     <button onclick="changestatusno();">미출석으로 변경</button>
-                                                    <button>출석 통계 확인</button>
+                                                    <button onclick="location.href='/statistics/${lec_code}'">출석 통계 확인</button>
                                                     <button id='attendify' onclick="selectcha();">출석체크 시작</button>
                                                     <button onclick="deleteclass();">수업 종강하기</button>
                                                 </div>
@@ -473,7 +479,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                         document.getElementById("chaselect").style.display = "flex";
                                                     }
                                                     else {
-                                                        qrframe.src = "";
+                                                        qrframe.src = "/showtext/수업코드: ${lec_code}";
                                                         button.innerText = "출석체크 시작";
                                                     }
                                                 }

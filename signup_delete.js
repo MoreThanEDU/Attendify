@@ -83,11 +83,11 @@ router.get("/signup", (req, res) => {
     <form action="/signup" method="post">
         <input class="login" type="text" name="verificationCode" placeholder="인증코드 입력" required>
         <input class="login" type="text" name="name" placeholder="이름" required>
-        <p>2자 이상 | 한글 또는 영문</p>
+        <span style="display: block; text-align: left; font-size: 12px; padding-left: 7px;">2자 이상 | 한글 또는 영문</span>
         <input class="login" type="text" name="id" placeholder="아이디" required>
-        <p>5 - 15자 | 영문 포함 | 숫자, -, _ 가능</p>
+        <span style="display: block; text-align: left; font-size: 12px; padding-left: 7px;">5 - 15자 | 영문 포함 | 숫자, -, _ 가능</span>
         <input class="login" type="password" name="password" placeholder="비밀번호" required>
-        <p>8 - 20자 | 영문, 숫자, 특수문자 포함(!@#$%^&*-_)</p>
+        <span style="display: block; text-align: left; font-size: 12px; padding-left: 7px;">8 - 20자 | 영문, 숫자, 특수문자 포함(!@#$%^&*-_)</span>
         <input class="login" type="password" name="password2" placeholder="비밀번호 확인" required>
         <div class="radio">
             <label><input type="radio" name="accountType" value="t" required> 교수/교사</label>
