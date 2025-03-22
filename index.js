@@ -607,7 +607,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                                     <div class="buttons">
                                                         <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
                                                         <button onclick="changestatusno();">미출석으로 변경</button>
-                                                        <button>출석 통계 확인</button>
+                                                        <button onclick="location.href='/statistics/${lec_code}'">출석 통계 확인</button>
                                                         <button id='attendify' onclick="selectcha();">출석체크 시작</button>
                                                         <button onclick="deleteclass();">수업 종강하기</button>
                                                     </div>
@@ -742,7 +742,7 @@ app.get("/lecture/:l_code", (req, res) => {
                                             
                                             <div class="right-panel">
                                                 <div class="buttons">
-                                                    <button>출석 통계 확인</button>
+                                                    <button onclick="location.href='/statistics/${lec_code}'">출석 통계 확인</button>
                                                 </div>
                                                 <center><div class="qrcode" id="qrcode">
                                                     <iframe id="qrcodeframe" width="470px" height="550" style="overflow-x: hidden; border: none;"></iframe>
