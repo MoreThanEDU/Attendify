@@ -16,7 +16,9 @@ const deleteExpiredAccounts = require("./deleteExpiredAccounts");
 var QRCode = require("qrcode")
 const Redis = require("ioredis");
 const redis = new Redis();
+const https = require("https");
 require("dotenv").config();
+const fs = require("fs");
 
 function generateRandomString(length) {
     const characters =
@@ -125,6 +127,11 @@ app.use(signupDelete);
 app.use(loginLogout);
 app.use(phoneauth);
 app.use(lecture);
+
+const options = {
+    key: fs.readFileSync("server.key"),  // 개인 키
+    cert: fs.readFileSync("server.cert") // 인증서
+};
 
 app.get("/", (req, res) => {
     if (!req.session.is_logined) {
@@ -343,7 +350,7 @@ app.get("/generateqrcode", (req, res) => {
 
 app.get("/lecture/:l_code", (req, res) => {
     if (!req.session.is_logined) {
-        return res.redirect("/login");
+        return res.redirect("/account/login");
     }
     if (req.session.t_s === "s") {
         return res.send('<script>alert("잘못된 접근입니다.");history.back();</script>');
@@ -926,11 +933,6 @@ app.get("/lecture/finish/:l_code/:session/:cha", async (req, res) => {
                                 if (cha == 1) {
                                     const attendst = [...o1Array, ...x1Array];
                                     const noattend = studentlist.filter(item => !attendst.includes(item)).join("/");
-                                    console.log(studentlist);
-                                    console.log(o1Array);
-                                    console.log(x1Array);
-                                    console.log(attendst);
-                                    console.log(noattend);
                                     db.run(
                                         `UPDATE "${l_code}" SET o_1 = ?, x_1 = ?, o_2 = ?, x_2 = ? WHERE session = ?`,
                                         [o1Array.join("/"), noattend, o2Array.join("/"), x2Array.join("/"), session],
@@ -1017,6 +1019,7 @@ app.post("/attend", async (req, res) => {
             if (err) return res.status(500).send("<script>alert('서버 오류가 발생했습니다');history.back();</script>");
             if (!lecRow) return res.status(404).send("<script>alert('강좌 없음');history.back();</script>");
             const at_cnt = lecRow.at_cnt;
+            console.log("at_cnt: " + at_cnt);
             if (at_cnt == 2) {
                 db.get(
                     `SELECT o_1, x_1, o_2, x_2 FROM "${l_code}" WHERE session = ?`,
@@ -1031,27 +1034,26 @@ app.post("/attend", async (req, res) => {
                             console.log("<script>alert('해당 session의 데이터가 없습니다.');history.back();</script>");
                             return res.status(404).send("<script>alert('해당 session의 데이터가 없습니다.');history.back();</script>");
                         }
-
                         let o1Array = sessionData.o_1.split("/").filter(item => item.trim() !== "");
                         let x1Array = sessionData.x_1.split("/").filter(item => item.trim() !== "");
                         let o2Array = sessionData.o_2.split("/").filter(item => item.trim() !== "");
                         let x2Array = sessionData.x_2.split("/").filter(item => item.trim() !== "");
-                        
-                        if (o1Array.includes(a_code)||o2Array.includes(a_code)) {
-                            return res.send("<script>alert('이미 출석한 사용자입니다.');history.back();</script>");
-                        }
-
                         if (cha == 1) {
+                            if (o1Array.includes(a_code)) {
+                                return res.send("<script>alert('이미 출석한 사용자입니다.');history.back();</script>");
+                            }
                             o1Array.push(a_code);
                         } else if (cha == 2) {
+                            if (o2Array.includes(a_code)) {
+                                return res.send("<script>alert('이미 출석한 사용자입니다.');history.back();</script>");
+                            }
                             o2Array.push(a_code);
                         }
-
-                        console.log(a_code);
-                        console.log(o1Array);
-                        console.log(o2Array);
-                        console.log(x1Array);
-                        console.log(x2Array);
+                        console.log("계정 코드:" + a_code);
+                        console.log("o1Array:" + o1Array);
+                        console.log("o2Array:" + o2Array);
+                        console.log("x1Array:" + x1Array);
+                        console.log("x2Array:" + x2Array);
             
                         let updatedO1 = o1Array.join("/");
                         let updatedX1 = x1Array.join("/");
@@ -1781,6 +1783,6 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
         return res.send("<script>history.back();</script>");
 });
 
-app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+https.createServer(options, app).listen(3000, () => {
+    console.log("실행 중!");
 });

@@ -77,7 +77,7 @@ router.get("/account/signup", (req, res) => {
             <input class="btn" style="width: 10%;" type="submit" value="인증코드 전송"></button>
         </div>
     </form>
-    <form action="/signup" method="post">
+    <form action="/account/signup" method="post">
         <input class="login" type="text" name="verificationCode" placeholder="인증코드 입력" required>
         <input class="login" type="text" name="name" placeholder="이름" required>
         <span style="display: block; text-align: left; font-size: 12px; padding-left: 7px;">2자 이상 | 한글 또는 영문</span>
@@ -137,8 +137,8 @@ router.post("/request-code", async (req, res) => {
         messageService.sendOne({
             to: phone,
             from: '01088501571',
-            text: '한글 45자, 영자 90자 이하 입력되면 자동으로 SMS타입의 메시지가 발송됩니다.',
-            }).then(res => console.log(res))
+            text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
+        }).then(res => console.log(res))
         .catch(err => console.error(err));
         res.send('<script>alert("인증번호가 전송되었습니다.");history.back();</script>');
         console.log(req.session.phone);
@@ -199,7 +199,7 @@ router.post("/account/signup", async (req, res) => {
         const a_code = generateRandomString(6);
         db.run(
             "INSERT INTO Users (name, id, pw, pn, t_s, a_code, en_lec, bigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [name, id, md5(password), phone, accountType, a_code, "", ""],
+            [name, id, md5(password), phone, accountType, a_code, "", " "],
             (err) => {
                 if (err) {
                     console.error(err);
@@ -207,7 +207,7 @@ router.post("/account/signup", async (req, res) => {
                         '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
                     );
                 }
-                res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/login";</script>');
+                res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/account/login";</script>');
             },
         );
     });
