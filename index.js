@@ -259,6 +259,7 @@ app.get("/main", (req, res) => {
                                     <div class="top">
                                         <div class="title">진행중인 강좌</div>
                                         <div class="buttons">
+                                            <button type="button" onclick="location.href='/disposable'">일회용 출석체크</button>
                                             <button type="button" onclick="location.href='/lecture/create'">강좌 생성하기</button>
                                         </div>
                                     </div>
