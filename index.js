@@ -479,61 +479,15 @@ app.get("/lecture/:l_code", (req, res) => {
                                             </div>
                                             
                                             <div class="right-panel">
-                                                <div class="buttons">
-                                                    <button onclick="location.href='/newsession/${lec_code}'">새 회차 만들기</button>
-                                                    <button onclick="changestatusno();">미출석으로 변경</button>
-                                                    <button onclick="location.href='/statistics/${lec_code}'">출석 통계 확인</button>
-                                                    <button id='attendify' onclick="selectcha();">출석체크 시작</button>
-                                                    <button onclick="deleteclass();">수업 종강하기</button>
-                                                </div>
                                                 <center><div class="qrcode" id="qrcode">
                                                     <iframe id="qrcodeframe" width="470px" height="550" style="overflow-x: hidden; border: none;"></iframe>
                                                 </div></center>
                                             </div>
                                         </div>
                                         <script>
-                                            const at_cnt = ${at_cnt};
-                                            const button = document.getElementById('attendify');
                                             const qrframe = document.getElementById('qrcodeframe');
-        
-                                            function revealqrcode(cha) {
-                                                //몇차 출첵인지 입력받고 QR생성
-                                                qrframe.src = "/qrcode/${lec_code}/" + document.getElementById('sessionDropdown').value + "/" + generateRandomString(50) + "/" + cha ;
-                                                button.innerText = "출석체크 중단";
-                                                document.getElementById("chaselect").style.display = "none";
-                                            }
-                                            
-                                            function selectcha() {
-                                                if (at_cnt == 1) {
-                                                    if (button.innerText == "출석체크 시작") {
-                                                        revealqrcode("no");
-                                                        button.innerText = "출석체크 중단";
-                                                    }
-                                                    else {
-                                                        qrframe.src = "";
-                                                        button.innerText = "출석체크 시작";
-                                                    }
-                                                }
-                                                if (at_cnt == 2) {
-                                                    if (button.innerText == "출석체크 시작") {
-                                                        document.getElementById("chaselect").style.display = "flex";
-                                                    }
-                                                    else {
-                                                        qrframe.src = "/showtext/수업코드: ${lec_code}";
-                                                        button.innerText = "출석체크 시작";
-                                                    }
-                                                }
-                                            }
-        
-                                            const iframe = document.getElementById('attendanceFrame');
+                                            qrframe.src = "/lecture/qrcode/${lec_code}/" + "1" + "/" + generateRandomString(50) + "/" + "0" ;
                                             iframe.src = "/attendancelist/${lec_code}/1";
-                                            qrframe.src = "/showtext/수업코드: ${lec_code}";
-                                            // 회차 드롭다운이 변경되었을 때 iframe의 src를 동적으로 변경
-                                            document.getElementById('sessionDropdown').addEventListener('change', function() {
-                                                let selectedSession = this.value;
-                                                iframe.src = "/attendancelist/${lec_code}/" + selectedSession;
-                                                button.innerText = "출석체크 시작";
-                                            });
         
                                             function generateRandomString(length) {
                                                 const characters =
@@ -549,23 +503,6 @@ app.get("/lecture/:l_code", (req, res) => {
         
                                                 return result;
                                             }
-                                                
-                                                qrframe.src = "/lecture/qrcode/${lec_code}/" + "1" + "/" + generateRandomString(50) + "/" + "0" ;
-            
-                                                function generateRandomString(length) {
-                                                    const characters =
-                                                        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-                                                    let result = "";
-                                                    const charactersLength = characters.length;
-            
-                                                    for (let i = 0; i < length; i++) {
-                                                        result += characters.charAt(
-                                                            Math.floor(Math.random() * charactersLength),
-                                                        );
-                                                    }
-            
-                                                    return result;
-                                                }
                                             </script>
                                             `,
                                         );
