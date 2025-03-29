@@ -5,7 +5,7 @@ module.exports = {
             <html lang="ko">
             <head>
                 <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta name="viewport" content="width=device-width, initial-scale=0.9, user-scalable=no">
                 <title>Attendify</title>
                 <style>
                     body {
@@ -92,7 +92,8 @@ module.exports = {
                     }
 
                     .buttons {
-                        float: right
+                        float: right;
+                        color: white;
                     }
 
                     .buttons button {

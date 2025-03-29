@@ -907,7 +907,7 @@ app.get("/lecture/finish/:l_code/:session/:cha", async (req, res) => {
                         studentlist = sessionData.s_a_code.split("/").filter(item => item.trim() !== "");
                 });
                 db.get(
-                    `SELECT attend, late, absent FROM "${l_code}" WHERE session = ?`,
+                    `SELECT attend, late, early, absent FROM "${l_code}" WHERE session = ?`,
                     [session],
                     (err, sessionData) => {
                         if (err) {
@@ -1016,7 +1016,7 @@ app.post("/attend", async (req, res) => {
             }
             if (at_cnt == 1) {
                 db.get(
-                    `SELECT attend, late, absent FROM "${l_code}" WHERE session = ?`,
+                    `SELECT attend, late, early, absent FROM "${l_code}" WHERE session = ?`,
                     [session],
                     (err, sessionData) => {
                         if (err) {
@@ -1032,20 +1032,22 @@ app.post("/attend", async (req, res) => {
                         // 각 출석 상태를 '/'로 나누어 배열로 저장
                         let attend = sessionData.attend.split("/").filter(item => item.trim() !== "");
                         let late = sessionData.late.split("/").filter(item => item.trim() !== "");
+                        let early = sessionData.early.split("/").filter(item => item.trim() !== "");
                         let absent = sessionData.absent.split("/").filter(item => item.trim() !== "");
                         
-                        if (attend.includes(a_code)||late.includes(a_code)||absent.includes(a_code)) {
+                        if (attend.includes(a_code)||late.includes(a_code)||absent.includes(a_code)||early.includes(a_code)) {
                             return res.send("<script>alert('이미 출석한 사용자입니다.');history.back();</script>");
                         }
                         attend.push(a_code);
             
                         let attendupdate = attend.join("/");
                         let lateupdate = late.join("/");
+                        let earlyupdate = early.join("/");
                         let absentupdate = absent.join("/");
                         // 출석 상태를 DB에 업데이트
                         db.run(
-                            `UPDATE "${l_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                            [attendupdate, lateupdate, absentupdate, session],
+                            `UPDATE "${l_code}" SET attend = ?, late = ?, early = ?, absent = ? WHERE session = ?`,
+                            [attendupdate, lateupdate, earlyupdate, absentupdate, session],
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
@@ -1163,6 +1165,7 @@ app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
                             const response = {
                                 attend: sessionData.attend.split("/"),
                                 late: sessionData.late.split("/"),
+                                early: sessionData.early.split("/"),
                                 absent: sessionData.absent.split("/"),
                             };
             
@@ -1497,6 +1500,7 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                             if (data.attend.includes(a_code)) present = "출석";
                                             else if (data.late.includes(a_code)) present = "지각";
                                             else if (data.absent.includes(a_code)) present = "결석";
+                                            else if (data.early.includes(a_code)) present = "조퇴";
 
                                             document.getElementById("status-" + a_code).innerText = present;
                                         });
@@ -1612,7 +1616,7 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
             }
             if (at_cnt == 1) {
                 db.get(
-                    `SELECT attend, late, absent FROM "${lec_code}" WHERE session = ?`,
+                    `SELECT attend, late, early, absent FROM "${lec_code}" WHERE session = ?`,
                     [session_code],
                     (err, sessionData) => {
                         if (err) {
@@ -1628,6 +1632,7 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                         // 각 출석 상태를 '/'로 나누어 배열로 저장
                         let attend = sessionData.attend.split("/").filter(item => item.trim() !== "");
                         let late = sessionData.late.split("/").filter(item => item.trim() !== "");
+                        let early = sessionData.early.split("/").filter(item => item.trim() !== "");
                         let absent = sessionData.absent.split("/").filter(item => item.trim() !== "");
             
                         if (attend.includes(a_code)) {
@@ -1635,6 +1640,9 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             late.push(a_code);
                         } else if (late.includes(a_code)) {
                             late = late.filter(item => item !== a_code);
+                            early.push(a_code); 
+                        } else if (early.includes(a_code)) {
+                            early = early.filter(item => item !== a_code);
                             absent.push(a_code); 
                         } else if (absent.includes(a_code)) {
                             absent = absent.filter(item => item !== a_code);
@@ -1645,11 +1653,12 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
             
                         let attendupdate = attend.join("/");
                         let lateupdate = late.join("/");
+                        let earlyupdate = early.join("/");
                         let absentupdate = absent.join("/");
                         // 출석 상태를 DB에 업데이트
                         db.run(
-                            `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                            [attendupdate, lateupdate, absentupdate, session_code],
+                            `UPDATE "${lec_code}" SET attend = ?, late = ?, early = ?, absent = ? WHERE session = ?`,
+                            [attendupdate, lateupdate, earlyupdate, absentupdate, session_code],
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
@@ -1705,8 +1714,8 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
                     return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                 }
                 db.run(
-                    `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                    ["/", "/", "/", session_code],
+                    `UPDATE "${lec_code}" SET attend = ?, late = ?, early = ?, absent = ? WHERE session = ?`,
+                    ["/", "/", "/", "/", session_code],
                     (err) => {
                         if (err) {
                             console.error("업데이트 오류: ", err.message);

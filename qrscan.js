@@ -6,7 +6,7 @@ module.exports = {
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>QR 코드 스캐너</title>
+                <title>Attendify</title>
                 <script src="https://unpkg.com/html5-qrcode"></script>
                 <style>
                     /* 기본 스타일 */
@@ -105,6 +105,7 @@ module.exports = {
 
                         // 스캔 완료 후 자동 정지
                         stopScanner();
+                        location.href = "/main";
                     }
 
                     function startScanner() {
