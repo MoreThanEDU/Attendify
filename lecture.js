@@ -65,7 +65,7 @@ router.post("/lec_create", (req, res) => {
     console.log("세션에서 가져온 ID:", req.session.username);
     let l_code = generateRandomString(6);
 
-    if (lec_name.trim() !== "") {
+    if (lec_name.trim() == "") {
         res.send("<script>alert('강좌 이름을 입력해주세요.');history.back();</script>")
     } else {
         db.get("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
@@ -100,61 +100,23 @@ router.post("/lec_create", (req, res) => {
                 },
             );
         });
-    }
-
-
-    if (at_cnt == 1) {
-        const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
-            session TEXT,
-            attend TEXT,
-            late TEXT,
-            absent TEXT
-        );`;
-
-        db.run(query, (err) => {
-            if (err) {
-                console.error("테이블 생성 중 오류:", err);
-            } else {
-                console.log("테이블이 성공적으로 생성됨!");
-            }
-            db.run(
-                `INSERT INTO ${l_code} (session, attend, late, absent) VALUES (?, ?, ?, ?)`,
-                [1, "", "", ""],
-                (err) => {
-                    if (err) {
-                        console.error(err);
-                        return res.send(
-                            '<script>alert("데이터 삽입 실패");history.back();</script>',
-                        );
-                    } else {
-                        console.log("데이터 삽입 성공!");
-                        return res.send(
-                            "<script>alert('강좌 생성 성공');location.href='/main'</script>",
-                        );
-                    }
-                },
-            );
-        });
-    }
-
-    if (at_cnt == 2) {
-        const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
-            session TEXT,
-            o_1 TEXT,
-            x_1 TEXT,
-            o_2 TEXT,
-            x_2 TEXT
-        );`;
-
-        db.run(query, (err) => {
-            if (err) {
-                console.error("테이블 생성 중 오류:", err);
-            } else {
-                console.log("테이블이 성공적으로 생성됨!");
-
-                // 테이블 생성 후 INSERT 실행
+        if (at_cnt == 1) {
+            const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
+                session TEXT,
+                attend TEXT,
+                late TEXT,
+                early TEXT,
+                absent TEXT
+            );`;
+    
+            db.run(query, (err) => {
+                if (err) {
+                    console.error("테이블 생성 중 오류:", err);
+                } else {
+                    console.log("테이블이 성공적으로 생성됨!");
+                }
                 db.run(
-                    `INSERT INTO "${l_code}" (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
+                    `INSERT INTO ${l_code} (session, attend, late, early, absent) VALUES (?, ?, ?, ?, ?)`,
                     [1, "", "", "", ""],
                     (err) => {
                         if (err) {
@@ -170,8 +132,45 @@ router.post("/lec_create", (req, res) => {
                         }
                     },
                 );
-            }
-        });
+            });
+        }
+    
+        if (at_cnt == 2) {
+            const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
+                session TEXT,
+                o_1 TEXT,
+                x_1 TEXT,
+                o_2 TEXT,
+                x_2 TEXT
+            );`;
+    
+            db.run(query, (err) => {
+                if (err) {
+                    console.error("테이블 생성 중 오류:", err);
+                } else {
+                    console.log("테이블이 성공적으로 생성됨!");
+    
+                    // 테이블 생성 후 INSERT 실행
+                    db.run(
+                        `INSERT INTO "${l_code}" (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
+                        [1, "", "", "", ""],
+                        (err) => {
+                            if (err) {
+                                console.error(err);
+                                return res.send(
+                                    '<script>alert("데이터 삽입 실패");history.back();</script>',
+                                );
+                            } else {
+                                console.log("데이터 삽입 성공!");
+                                return res.send(
+                                    "<script>alert('강좌 생성 성공');location.href='/main'</script>",
+                                );
+                            }
+                        },
+                    );
+                }
+            });
+        }
     }
 });
 
@@ -197,8 +196,8 @@ router.get("/newsession/:lec_code", (req, res) => {
                 let last = num + 1;
                 if (at_cnt == 1) {
                     db.run(
-                        `INSERT INTO ${l_code} (session, attend, late, absent) VALUES (?, ?, ?, ?)`,
-                        [last, "/", "/", "/"],
+                        `INSERT INTO ${l_code} (session, attend, late, early, absent) VALUES (?, ?, ?, ?, ?)`,
+                        [last, "/", "/", "/", "/"],
                         (err) => {
                             if (err) {
                                 console.error(err);
@@ -267,7 +266,7 @@ router.get("/statistics/:lec_code", (req, res) => {
                         let isEmptySession = true; // 해당 세션이 비었는지 확인
 
                         // 출석 상태 처리
-                        ['attend', 'late', 'absent'].forEach(status => {
+                        ['attend', 'late', 'early', 'absent'].forEach(status => {
                             let students_status = row[status] ? row[status].split('/').filter(student => student !== "") : [];
                             if (students_status.length > 0) isEmptySession = false; // 하나라도 값이 있으면 false
 
@@ -577,7 +576,7 @@ router.get("/disposable", (req, res) => {
             console.log("테이블이 성공적으로 생성됨!");
         }
         db.run(
-            `INSERT INTO ${l_code} (attend) VALUES (?)`,
+            `INSERT INTO "${l_code}" (attend) VALUES (?)`,
             [""],
             (err) => {
                 if (err) {
