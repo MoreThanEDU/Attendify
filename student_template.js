@@ -1,12 +1,11 @@
 module.exports = {
-    HTML: function (username, lecture_name, data) {
+    HTML: function (username, lecture_name, lecture_code, data) {
         return `<!DOCTYPE html>
                 <html lang="ko">
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
-                    <title>Attendify</title>
+                    <title>출석 현황 테이블</title>
                     <style>
                         body {
                             font-family: Arial, sans-serif;
@@ -14,18 +13,7 @@ module.exports = {
                             background-color: #f4f4f9;
                             color: black;
                         }
-
-                        * {
-                            font-family: Pretendard-Regular;
-                        }
-                            
-                        @font-face {
-                            font-family: 'Pretendard-Regular';
-                            src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
-                            font-weight: 400;
-                            font-style: normal;
-                        }
-                            
+                
                         .header {
                             background: linear-gradient(to right, #10A99A, #AED56F);
                             padding: 15px 20px;
@@ -189,8 +177,8 @@ module.exports = {
                     </div>
                     <div class="container">
                         <div class="navigation">
-                            <h1>${lecture_name}의 학생 출석 현황</h1>
-                            <button onclick="exportToExcel();">엑셀 파일로 다운로드</button>
+                            <h1>나의 ${lecture_name} 출석 현황</h1>
+                            <button onclick="location.href='/exitlec/${lecture_code}'">수업에서 나가기</button>
                         </div>
                         <div id="table-container"></div>
                     </div>
@@ -283,40 +271,6 @@ module.exports = {
                         }
 
                         createTable();
-
-                        function exportToExcel() {
-                            // 엑셀 워크북 생성
-                            const wb = XLSX.utils.book_new();
-
-                            // 학생 이름과 회차 번호 리스트 추출
-                            const studentNames = Object.keys(data);
-                            const rounds = Object.keys(data[studentNames[0]]);  // 첫 번째 학생의 회차 기준
-
-                            // 시트 데이터 준비
-                            const sheetData = [];
-
-                            // 첫 번째 행: 회차 번호들 (회차를 첫 번째 행에 배치)
-                            const header = [''].concat(rounds);  // 첫 번째 셀을 비워두고 회차 추가
-                            sheetData.push(header);
-
-                            // 각 학생의 출석 정보를 추가 (학생 이름과 해당 출석 정보)
-                            studentNames.forEach(student => {
-                                const row = [student]; // 첫 번째 열은 학생 이름
-                                rounds.forEach(round => {
-                                    row.push(data[student][round] || ''); // 해당 학생의 회차별 출석 상태
-                                });
-                                sheetData.push(row);
-                            });
-
-                            // 시트로 변환
-                            const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-                            // 생성된 시트를 워크북에 추가
-                            XLSX.utils.book_append_sheet(wb, ws, "${lecture_name}의 학생 출석 현황");
-
-                            // 엑셀 파일 다운로드
-                            XLSX.writeFile(wb, "attendance_${lecture_name}.xlsx");
-                        }
                     </script>
                 </body>
                 </html>`;

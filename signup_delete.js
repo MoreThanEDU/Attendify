@@ -11,10 +11,7 @@ require("dotenv").config();
 
 const router = express.Router();
 const redis = new Redis();
-const messageService = new coolsms(
-    "NCSWP3E1RLJHQG9Q",
-    "PW1E8H0L8C2AFDNCZ5H66LIM5PPK8XFX",
-);
+const messageService = new coolsms(process.env.API_KEY, process.env.API_SECRET);
 
 function generateRandomString(length) {
     const characters =
@@ -42,7 +39,7 @@ function vali_id(id) {
 }
 
 function vali_pn(pn) {
-    const pnRegex = /^010[0-9]{3,4}[0-9]{4}$/; // 01012345678 (하이픈 없음), 10~11자리 숫자
+    const pnRegex = /^010[0-9]{7,8}$/;
     return pnRegex.test(pn);
 }
 
@@ -51,14 +48,11 @@ function vali_pw(pw) {
     return pwRegex.test(pw);
 }
 
-// Middleware 설정
-router.use(bodyParser.urlencoded({ extended: true }));
-router.use(bodyParser.json());
 router.use(
     session({
         secret: process.env.SESSION_SECRET, // 환경 변수에서 키를 가져옴
         resave: false,
-        saveUninitialized: true,
+        saveUninitialized: false,
         cookie: {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -66,12 +60,15 @@ router.use(
         },
     }),
 );
+router.use(bodyParser.urlencoded({ extended: true }));
+router.use(bodyParser.json());
+
 
 const REQUEST_LIMIT = 2; // 5분에 2번
 const TOTAL_LIMIT = 10; // 총 10번
 
 // 회원가입 페이지
-router.get("/signup", (req, res) => {
+router.get("/account/signup", (req, res) => {
     const html = template.HTML("signup",`
     <h2>회원가입</h2>
     <form action="/request-code" method="post">
@@ -80,7 +77,7 @@ router.get("/signup", (req, res) => {
             <input class="btn" style="width: 10%;" type="submit" value="인증코드 전송"></button>
         </div>
     </form>
-    <form action="/signup" method="post">
+    <form action="/account/signup" method="post">
         <input class="login" type="text" name="verificationCode" placeholder="인증코드 입력" required>
         <input class="login" type="text" name="name" placeholder="이름" required>
         <span style="display: block; text-align: left; font-size: 12px; padding-left: 7px;">2자 이상 | 한글 또는 영문</span>
@@ -102,53 +99,46 @@ router.get("/signup", (req, res) => {
 // 인증번호 요청
 router.post("/request-code", async (req, res) => {
     const phone = req.body.phonenumber;
+    const ipv6 = req.socket.remoteAddress;
+    const clientIp = ipv6.includes('::ffff:') ? ipv6.split('::ffff:')[1] : ipv6;
+
     const codeKey = `code:${phone}`;
-    const rateLimitKey = `rate:${phone}`;
-    let db = new sqlite3.Database("./DB.db");
-
+    const rateLimitKey = `rate:${clientIp}`;
     //db.get을 Promise로 변환
-    const dbGet = promisify(db.get).bind(db);
-
-    try {
-        //SQLite에서 전화번호 확인 (await 사용 가능)
-        const row = await dbGet("SELECT * FROM Users WHERE pn = ?", [phone]);
-
-        if (row) {
-            return res.send('<script>alert("이미 가입된 전화번호입니다.");history.back();</script>');
-        }
-
-        //요청 제한 확인
-        const rateCount = await redis.incr(rateLimitKey);
-        if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
-        if (rateCount > REQUEST_LIMIT) {
-            return res.send('<script>alert("요청이 너무 많습니다. 나중에 다시 시도하세요.");history.back();</script>');
-        }
-
-        //인증번호 생성 및 Redis 저장
-        const code = Math.floor(100000 + Math.random() * 900000);
-        await redis.set(codeKey, code, "EX", 300); // 5분 유효
-        req.session.phone = phone;
-
-        //인증번호 문자 전송
-        await messageService.sendOne({
-            to: phone,
-            from: "01088501571",
-            text: `[모어댄에듀]\n가입 시 사용되는 인증 코드는 ${code}입니다. 절대 외부로 유출하지 마세요.`,
-        });
-
-        return res.send('<script>alert("인증 코드가 전송되었습니다.");history.back();</script>');
-    } catch (error) {
-        console.error("오류 발생:", error);
-        return res.send('<script>alert("서버 오류 발생! 다시 시도하세요.");history.back();</script>');
-    } finally {
-        db.close(); //DB 연결 닫기 (메모리 누수 방지)
+    const rateCount = await redis.incr(rateLimitKey);
+    if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
+    if (rateCount > 2) {
+        return res.send(
+            '<script>alert("요청이 너무 많습니다. 5분 후에 다시 시도하세요.");history.back();</script>',
+        );
     }
-});
-    
 
+    const totalKey = `total:${clientIp}`;
+    const totalAttempts = await redis.incr(totalKey);
+
+    if (totalAttempts > 10) {
+        await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
+        return res.redirect('/account/blocked');
+    }
+    
+    const code = Math.floor(100000 + Math.random() * 900000);
+    
+    await redis.set(codeKey, code, "EX", 300); // 5분 유효
+    
+    req.session.phone = phone;
+
+    messageService.sendOne({
+        to: phone,
+        from: '01088501571',
+        text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
+    }).then(res => console.log(res))
+    .catch(err => console.error(err));
+    res.send('<script>alert("인증번호가 전송되었습니다.");history.back();</script>');
+    console.log(req.session.phone);
+});
 
 // 회원가입 처리
-router.post("/signup", async (req, res) => {
+router.post("/account/signup", async (req, res) => {
     const { name, id, password, password2, verificationCode, accountType } =
         req.body;
     const phone = req.session.phone;
@@ -185,37 +175,87 @@ router.post("/signup", async (req, res) => {
     }
 
     const db = new sqlite3.Database("./DB.db");
-    db.get("SELECT * FROM Users WHERE id = ?", [id], (err, row) => {
-        if (err) {
-            console.error(err);
-            return res.send(
-                '<script>alert("데이터베이스 오류입니다.");history.back();</script>',
-            );
-        }
-        if (row) {
-            return res.send(
-                '<script>alert("동일한 아이디가 이미 존재합니다.");history.back();</script>',
-            );
-        }
-        const a_code = generateRandomString(6);
-        db.run(
-            "INSERT INTO Users (name, id, pw, pn, t_s, a_code, en_lec, bigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [name, id, md5(password), phone, accountType, a_code, "", ""],
-            (err) => {
+    const dbAll = promisify(db.all).bind(db);
+    const row = await dbAll("SELECT * FROM Users WHERE pn = ?", [phone]);
+    if (row.length > 0) {
+        const types = row.map(row => row.t_s); 
+        if (accountType == 't') {
+            if (types.includes('t')) {
+                return res.send('<script>alert("이미 가입된 선생님 계정이 있습니다.");history.back();</script>');
+            }
+        } else {
+            db.get("SELECT * FROM Users WHERE id = ?", [id], (err, row) => {
                 if (err) {
                     console.error(err);
                     return res.send(
-                        '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
+                        '<script>alert("데이터베이스 오류입니다.");history.back();</script>',
                     );
                 }
-                res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/login";</script>');
-            },
-        );
-    });
+                if (row) {
+                    return res.send(
+                        '<script>alert("동일한 아이디가 이미 존재합니다.");history.back();</script>',
+                    );
+                }
+                const a_code = generateRandomString(6);
+                db.run(
+                    "INSERT INTO Users (name, id, pw, pn, t_s, a_code, en_lec, bigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    [name, id, md5(password), phone, accountType, a_code, "", " "],
+                    (err) => {
+                        if (err) {
+                            console.error(err);
+                            return res.send(
+                                '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
+                            );
+                        }
+                        res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/account/login";</script>');
+                    },
+                );
+            });
+        }
+        if (accountType == 's') {
+            if (types.includes('s')) {
+                return res.send('<script>alert("이미 가입된 학생 계정이 있습니다.");history.back();</script>');
+            }
+        } else {
+            db.get("SELECT * FROM Users WHERE id = ?", [id], (err, row) => {
+                if (err) {
+                    console.error(err);
+                    return res.send(
+                        '<script>alert("데이터베이스 오류입니다.");history.back();</script>',
+                    );
+                }
+                if (row) {
+                    return res.send(
+                        '<script>alert("동일한 아이디가 이미 존재합니다.");history.back();</script>',
+                    );
+                }
+                const a_code = generateRandomString(6);
+                db.run(
+                    "INSERT INTO Users (name, id, pw, pn, t_s, a_code, en_lec, bigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    [name, id, md5(password), phone, accountType, a_code, "", " "],
+                    (err) => {
+                        if (err) {
+                            console.error(err);
+                            return res.send(
+                                '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
+                            );
+                        }
+                        res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/account/login";</script>');
+                    },
+                );
+            });
+        }
+    } 
 });
 
 // 계정 삭제 요청 페이지
-router.get("/delete-account", (req, res) => {
+router.get("/account/delete", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "s") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
     const html = template.HTML(
         "delete-account",
         `
@@ -267,7 +307,7 @@ router.post("/delete-account", (req, res) => {
                     );
                 }
                 res.send(
-                    '<script>alert("계정 삭제 요청되었습니다. 7일 후에 삭제되며, 기간 이내에 계정 삭제 요청을 철회할 수 있습니다.");location.href="/";</script>',
+                    '<script>alert("계정 삭제가 요청되었습니다. 7일 후에 삭제되며, 기간 이내에 계정 삭제 요청을 철회할 수 있습니다.");location.href="/";</script>',
                 );
             },
         );
@@ -275,7 +315,7 @@ router.post("/delete-account", (req, res) => {
 });
 
 // 계정 삭제 요청 철회
-router.get("/cancel-delete", (req, res) => {
+router.get("/account/cancel-delete", (req, res) => {
     const userId = req.session.username;
 
     if (!userId) {
