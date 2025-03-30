@@ -838,7 +838,7 @@ app.get("/showtext/:text", (req, res) => {
         return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
     }
     const text = req.params.text;
-    res.send(`<center><h1 style="font-size: 30pt;margin-top: 100px;">${text}</h1></center>`);
+    res.send(`<style>* {font-family: Pretendard-Regular;}@font-face {font-family: 'Pretendard-Regular';src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');font-weight: 400;font-style: normal;}</style><center><h1 style="font-size: 30pt;margin-top: 100px;">${text}</h1></center>`);
 });
 
 app.get("/lecture/finish/:l_code/:session/:cha", async (req, res) => {
@@ -1294,6 +1294,16 @@ app.get("/disposableatd/:l_code/", (req, res) => {
                     <meta charset="UTF-8">
                     <title>일회용 출석 관리</title>
                     <style>
+                        * {
+                            font-family: Pretendard-Regular;
+                        }
+                            
+                        @font-face {
+                            font-family: 'Pretendard-Regular';
+                            src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                            font-weight: 400;
+                            font-style: normal;
+                        }
                         body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
                         .container { width: 95%; padding: 10px; }
                         .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
@@ -1385,6 +1395,16 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                 <meta charset="UTF-8">
                                 <title>${lec_name} 출석 관리</title>
                                 <style>
+                                    * {
+                                        font-family: Pretendard-Regular;
+                                    }
+                                        
+                                    @font-face {
+                                        font-family: 'Pretendard-Regular';
+                                        src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                                        font-weight: 400;
+                                        font-style: normal;
+                                    }
                                     body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
                                     .container { width: 95%; padding: 10px; }
                                     .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
@@ -1468,6 +1488,16 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                 <meta charset="UTF-8">
                                 <title>${lec_name} 출석 관리</title>
                                 <style>
+                                    * {
+                                        font-family: Pretendard-Regular;
+                                    }
+                                        
+                                    @font-face {
+                                        font-family: 'Pretendard-Regular';
+                                        src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                                        font-weight: 400;
+                                        font-style: normal;
+                                    }
                                     body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
                                     .container { width: 95%; padding: 10px; }
                                     .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }

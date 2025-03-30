@@ -6,7 +6,7 @@ module.exports = {
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
-                    <title>출석 현황 테이블</title>
+                    <title>Attendify</title>
                     <style>
                         body {
                             font-family: Arial, sans-serif;
@@ -14,7 +14,16 @@ module.exports = {
                             background-color: #f4f4f9;
                             color: black;
                         }
-                
+                        * {
+                            font-family: Pretendard-Regular;
+                        }
+                            
+                        @font-face {
+                            font-family: 'Pretendard-Regular';
+                            src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                            font-weight: 400;
+                            font-style: normal;
+                        }
                         .header {
                             background: linear-gradient(to right, #10A99A, #AED56F);
                             padding: 15px 20px;

@@ -14,6 +14,16 @@ module.exports = {
                         padding: 0;
                         background-color: #f9f9f9;
                     }
+                    * {
+                        font-family: Pretendard-Regular;
+                    }
+                        
+                    @font-face {
+                        font-family: 'Pretendard-Regular';
+                        src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                        font-weight: 400;
+                        font-style: normal;
+                    }
             
                     .header {
                         background: linear-gradient(to right, #10A99A, #AED56F);

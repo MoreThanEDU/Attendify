@@ -4,13 +4,24 @@ module.exports = {
             <!DOCTYPE html>
             <html>
             <head>    
-                <title>${title}</title>
+                <title>Attendify</title>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=0.9, user-scalable=no">
                 <style>
                   html {
                      height: 100%;
                   }
+
+                  * {
+                        font-family: Pretendard-Regular;
+                    }
+                        
+                    @font-face {
+                        font-family: 'Pretendard-Regular';
+                        src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                        font-weight: 400;
+                        font-style: normal;
+                    }
                   
                   body {
                       min-height: 100vh;
