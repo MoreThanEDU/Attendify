@@ -22,17 +22,7 @@ const fs = require("fs");
 const morgan = require('morgan');
 
 const logStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
-morgan.token('json', (req, res) => {
-    return JSON.stringify({
-      timestamp: new Date().toISOString(),
-      ip: req.ip,
-      method: req.method,
-      url: req.originalUrl,
-      status: res.statusCode,
-      user_agent: req.headers['user-agent'],
-      referrer: req.headers.referer || null
-    });
-  });
+
 
 
 function generateRandomString(length) {
@@ -120,6 +110,7 @@ cron.schedule("0 0 * * *", () => {
 const app = express();
 const port = 3000;
 
+app.use(morgan('combined', { stream: logStream }));
 app.use("/static", express.static(path.join(__dirname, "static")));
 app.use(
     session({
@@ -142,7 +133,6 @@ app.use(signupDelete);
 app.use(loginLogout);
 app.use(phoneauth);
 app.use(lecture);
-app.use(morgan(':json', { stream: logStream }));
 
 
 const options = {
