@@ -44,7 +44,7 @@ function vali_pw(pw) {
 const messageService = new coolsms(process.env.API_KEY, process.env.API_SECRET);
 router.get('/account/find', (req, res) => {
     var html = template.HTML('findaccount', `
-    <h1>아이디/비밀번호 변경하기</h1>
+    <h1>비밀번호 변경하기</h1>
     <form action="/request-code-find" method="POST">
         <label for="phone">전화번호 입력</label>
         <input class="login" type="text" id="phone" name="phone" placeholder="01012345678" required>
