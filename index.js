@@ -19,6 +19,21 @@ const redis = new Redis();
 const https = require("https");
 require("dotenv").config();
 const fs = require("fs");
+const morgan = require('morgan');
+
+const logStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
+morgan.token('json', (req, res) => {
+    return JSON.stringify({
+      timestamp: new Date().toISOString(),
+      ip: req.ip,
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      user_agent: req.headers['user-agent'],
+      referrer: req.headers.referer || null
+    });
+  });
+
 
 function generateRandomString(length) {
     const characters =
@@ -127,6 +142,8 @@ app.use(signupDelete);
 app.use(loginLogout);
 app.use(phoneauth);
 app.use(lecture);
+app.use(morgan(':json', { stream: logStream }));
+
 
 const options = {
     key: fs.readFileSync("server.key"),  // 개인 키
