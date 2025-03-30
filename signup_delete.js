@@ -39,7 +39,7 @@ function vali_id(id) {
 }
 
 function vali_pn(pn) {
-    const pnRegex = /^010[0-9]{3,4}[0-9]{4}$/; // 01012345678 (하이픈 없음), 10~11자리 숫자
+    const pnRegex = /^010[0-9]{7,8}$/;
     return pnRegex.test(pn);
 }
 
@@ -104,46 +104,37 @@ router.post("/request-code", async (req, res) => {
 
     const codeKey = `code:${phone}`;
     const rateLimitKey = `rate:${clientIp}`;
-    let db = new sqlite3.Database("./DB.db");
-
     //db.get을 Promise로 변환
-    const dbGet = promisify(db.get).bind(db);
-    const row = await dbGet("SELECT * FROM Users WHERE pn = ?", [phone]);
-    if (row) {
-        return res.send('<script>alert("이미 가입된 전화번호입니다.");history.back();</script>');
-    } else {
-        const rateCount = await redis.incr(rateLimitKey);
-        if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
-        if (rateCount > 2) {
-            return res.send(
-                '<script>alert("요청이 너무 많습니다. 5분 후에 다시 시도하세요.");history.back();</script>',
-            );
-        }
-    
-        const totalKey = `total:${clientIp}`;
-        const totalAttempts = await redis.incr(totalKey);
-    
-        if (totalAttempts > 10) {
-            await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
-            return res.redirect('/account/blocked');
-        }
-        
-        const code = Math.floor(100000 + Math.random() * 900000);
-        
-        await redis.set(codeKey, code, "EX", 300); // 5분 유효
-        
-        req.session.phone = phone;
+    const rateCount = await redis.incr(rateLimitKey);
+    if (rateCount === 1) await redis.expire(rateLimitKey, 300); // 5분 제한
+    if (rateCount > 2) {
+        return res.send(
+            '<script>alert("요청이 너무 많습니다. 5분 후에 다시 시도하세요.");history.back();</script>',
+        );
+    }
 
-        messageService.sendOne({
-            to: phone,
-            from: '01088501571',
-            text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
-        }).then(res => console.log(res))
-        .catch(err => console.error(err));
-        res.send('<script>alert("인증번호가 전송되었습니다.");history.back();</script>');
-        console.log(req.session.phone);
+    const totalKey = `total:${clientIp}`;
+    const totalAttempts = await redis.incr(totalKey);
+
+    if (totalAttempts > 10) {
+        await redis.set(totalKey, '1', 'EX', 7 * 24 * 60 * 60); // 차단 키 생성
+        return res.redirect('/account/blocked');
     }
     
+    const code = Math.floor(100000 + Math.random() * 900000);
+    
+    await redis.set(codeKey, code, "EX", 300); // 5분 유효
+    
+    req.session.phone = phone;
+
+    messageService.sendOne({
+        to: phone,
+        from: '01088501571',
+        text: `[모어댄에듀] 인증코드: ${code} \n 타인에게 유출하지 마세요.`,
+    }).then(res => console.log(res))
+    .catch(err => console.error(err));
+    res.send('<script>alert("인증번호가 전송되었습니다.");history.back();</script>');
+    console.log(req.session.phone);
 });
 
 // 회원가입 처리
@@ -184,33 +175,77 @@ router.post("/account/signup", async (req, res) => {
     }
 
     const db = new sqlite3.Database("./DB.db");
-    db.get("SELECT * FROM Users WHERE id = ?", [id], (err, row) => {
-        if (err) {
-            console.error(err);
-            return res.send(
-                '<script>alert("데이터베이스 오류입니다.");history.back();</script>',
-            );
-        }
-        if (row) {
-            return res.send(
-                '<script>alert("동일한 아이디가 이미 존재합니다.");history.back();</script>',
-            );
-        }
-        const a_code = generateRandomString(6);
-        db.run(
-            "INSERT INTO Users (name, id, pw, pn, t_s, a_code, en_lec, bigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [name, id, md5(password), phone, accountType, a_code, "", " "],
-            (err) => {
+    const dbAll = promisify(db.all).bind(db);
+    const row = await dbAll("SELECT * FROM Users WHERE pn = ?", [phone]);
+    if (row.length > 0) {
+        const types = row.map(row => row.t_s); 
+        if (accountType == 't') {
+            if (types.includes('t')) {
+                return res.send('<script>alert("이미 가입된 선생님 계정이 있습니다.");history.back();</script>');
+            }
+        } else {
+            db.get("SELECT * FROM Users WHERE id = ?", [id], (err, row) => {
                 if (err) {
                     console.error(err);
                     return res.send(
-                        '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
+                        '<script>alert("데이터베이스 오류입니다.");history.back();</script>',
                     );
                 }
-                res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/account/login";</script>');
-            },
-        );
-    });
+                if (row) {
+                    return res.send(
+                        '<script>alert("동일한 아이디가 이미 존재합니다.");history.back();</script>',
+                    );
+                }
+                const a_code = generateRandomString(6);
+                db.run(
+                    "INSERT INTO Users (name, id, pw, pn, t_s, a_code, en_lec, bigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    [name, id, md5(password), phone, accountType, a_code, "", " "],
+                    (err) => {
+                        if (err) {
+                            console.error(err);
+                            return res.send(
+                                '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
+                            );
+                        }
+                        res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/account/login";</script>');
+                    },
+                );
+            });
+        }
+        if (accountType == 's') {
+            if (types.includes('s')) {
+                return res.send('<script>alert("이미 가입된 학생 계정이 있습니다.");history.back();</script>');
+            }
+        } else {
+            db.get("SELECT * FROM Users WHERE id = ?", [id], (err, row) => {
+                if (err) {
+                    console.error(err);
+                    return res.send(
+                        '<script>alert("데이터베이스 오류입니다.");history.back();</script>',
+                    );
+                }
+                if (row) {
+                    return res.send(
+                        '<script>alert("동일한 아이디가 이미 존재합니다.");history.back();</script>',
+                    );
+                }
+                const a_code = generateRandomString(6);
+                db.run(
+                    "INSERT INTO Users (name, id, pw, pn, t_s, a_code, en_lec, bigo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    [name, id, md5(password), phone, accountType, a_code, "", " "],
+                    (err) => {
+                        if (err) {
+                            console.error(err);
+                            return res.send(
+                                '<script>alert("회원가입에 실패했습니다.");history.back();</script>',
+                            );
+                        }
+                        res.send('<script>alert("회원가입이 완료되었습니다.");location.href="/account/login";</script>');
+                    },
+                );
+            });
+        }
+    } 
 });
 
 // 계정 삭제 요청 페이지

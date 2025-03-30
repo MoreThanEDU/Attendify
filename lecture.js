@@ -65,91 +65,58 @@ router.post("/lec_create", (req, res) => {
     console.log("세션에서 가져온 ID:", req.session.username);
     let l_code = generateRandomString(6);
 
-    db.get("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
-        if (row) {
-            l_code = generateRandomString(6);
-        }
-
-        db.get(
-            "SELECT a_code FROM Users WHERE id = ?",
-            [req.session.username],
-            (err, row) => {
-                if (err) {
-                    console.error("에러 발생:", err);
-                } else if (row) {
-                    console.log("가져온 데이터:", row);
-                    const myACode = row.a_code;
-                    db.run(
-                        "INSERT INTO lecture (lec_name, l_code, t_a_code, s_a_code, at_cnt) VALUES (?, ?, ?, ?, ?)",
-                        [lec_name, l_code, myACode, "", at_cnt],
-                        (err) => {
-                            if (err) {
-                                console.error(err);
-                                return res.send(
-                                    '<script>alert("강좌 생성에 실패했습니다.");history.back();</script>',
-                                );
-                            }
-                        },
-                    );
-                } else {
-                    console.log("오류 발생");
-                }
-            },
-        );
-    });
-
-    if (at_cnt == 1) {
-        const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
-            session TEXT,
-            attend TEXT,
-            late TEXT,
-            absent TEXT
-        );`;
-
-        db.run(query, (err) => {
-            if (err) {
-                console.error("테이블 생성 중 오류:", err);
-            } else {
-                console.log("테이블이 성공적으로 생성됨!");
+    if (lec_name.trim() == "") {
+        res.send("<script>alert('강좌 이름을 입력해주세요.');history.back();</script>")
+    } else {
+        db.get("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+            if (row) {
+                l_code = generateRandomString(6);
             }
-            db.run(
-                `INSERT INTO ${l_code} (session, attend, late, absent) VALUES (?, ?, ?, ?)`,
-                [1, "", "", ""],
-                (err) => {
+    
+            db.get(
+                "SELECT a_code FROM Users WHERE id = ?",
+                [req.session.username],
+                (err, row) => {
                     if (err) {
-                        console.error(err);
-                        return res.send(
-                            '<script>alert("데이터 삽입 실패");history.back();</script>',
+                        console.error("에러 발생:", err);
+                    } else if (row) {
+                        console.log("가져온 데이터:", row);
+                        const myACode = row.a_code;
+                        db.run(
+                            "INSERT INTO lecture (lec_name, l_code, t_a_code, s_a_code, at_cnt) VALUES (?, ?, ?, ?, ?)",
+                            [lec_name, l_code, myACode, "", at_cnt],
+                            (err) => {
+                                if (err) {
+                                    console.error(err);
+                                    return res.send(
+                                        '<script>alert("강좌 생성에 실패했습니다.");history.back();</script>',
+                                    );
+                                }
+                            },
                         );
                     } else {
-                        console.log("데이터 삽입 성공!");
-                        return res.send(
-                            "<script>alert('강좌 생성 성공');location.href='/main'</script>",
-                        );
+                        console.log("오류 발생");
                     }
                 },
             );
         });
-    }
-
-    if (at_cnt == 2) {
-        const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
-            session TEXT,
-            o_1 TEXT,
-            x_1 TEXT,
-            o_2 TEXT,
-            x_2 TEXT
-        );`;
-
-        db.run(query, (err) => {
-            if (err) {
-                console.error("테이블 생성 중 오류:", err);
-            } else {
-                console.log("테이블이 성공적으로 생성됨!");
-
-                // 테이블 생성 후 INSERT 실행
+        if (at_cnt == 1) {
+            const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
+                session TEXT,
+                attend TEXT,
+                late TEXT,
+                early TEXT,
+                absent TEXT
+            );`;
+    
+            db.run(query, (err) => {
+                if (err) {
+                    console.error("테이블 생성 중 오류:", err);
+                } else {
+                    console.log("테이블이 성공적으로 생성됨!");
+                }
                 db.run(
-                    `INSERT INTO "${l_code}" (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
+                    `INSERT INTO ${l_code} (session, attend, late, early, absent) VALUES (?, ?, ?, ?, ?)`,
                     [1, "", "", "", ""],
                     (err) => {
                         if (err) {
@@ -165,8 +132,45 @@ router.post("/lec_create", (req, res) => {
                         }
                     },
                 );
-            }
-        });
+            });
+        }
+    
+        if (at_cnt == 2) {
+            const query = `CREATE TABLE IF NOT EXISTS "${l_code}" (
+                session TEXT,
+                o_1 TEXT,
+                x_1 TEXT,
+                o_2 TEXT,
+                x_2 TEXT
+            );`;
+    
+            db.run(query, (err) => {
+                if (err) {
+                    console.error("테이블 생성 중 오류:", err);
+                } else {
+                    console.log("테이블이 성공적으로 생성됨!");
+    
+                    // 테이블 생성 후 INSERT 실행
+                    db.run(
+                        `INSERT INTO "${l_code}" (session, o_1, x_1, o_2, x_2) VALUES (?, ?, ?, ?, ?)`,
+                        [1, "", "", "", ""],
+                        (err) => {
+                            if (err) {
+                                console.error(err);
+                                return res.send(
+                                    '<script>alert("데이터 삽입 실패");history.back();</script>',
+                                );
+                            } else {
+                                console.log("데이터 삽입 성공!");
+                                return res.send(
+                                    "<script>alert('강좌 생성 성공');location.href='/main'</script>",
+                                );
+                            }
+                        },
+                    );
+                }
+            });
+        }
     }
 });
 
@@ -192,8 +196,8 @@ router.get("/newsession/:lec_code", (req, res) => {
                 let last = num + 1;
                 if (at_cnt == 1) {
                     db.run(
-                        `INSERT INTO ${l_code} (session, attend, late, absent) VALUES (?, ?, ?, ?)`,
-                        [last, "/", "/", "/"],
+                        `INSERT INTO ${l_code} (session, attend, late, early, absent) VALUES (?, ?, ?, ?, ?)`,
+                        [last, "/", "/", "/", "/"],
                         (err) => {
                             if (err) {
                                 console.error(err);
@@ -262,7 +266,7 @@ router.get("/statistics/:lec_code", (req, res) => {
                         let isEmptySession = true; // 해당 세션이 비었는지 확인
 
                         // 출석 상태 처리
-                        ['attend', 'late', 'absent'].forEach(status => {
+                        ['attend', 'late', 'early', 'absent'].forEach(status => {
                             let students_status = row[status] ? row[status].split('/').filter(student => student !== "") : [];
                             if (students_status.length > 0) isEmptySession = false; // 하나라도 값이 있으면 false
 
@@ -295,7 +299,7 @@ router.get("/statistics/:lec_code", (req, res) => {
                             }
                         });
                     });
-
+                    
                     function processData(Data, callback) {
                         let completedQueries = 0;
                         let dataKeys = Object.keys(Data);
@@ -425,7 +429,7 @@ router.get("/enroll-lecture", (req, res) => {
         var html = template.HTML("lecture", `
         <h2>수강 신청</h2>
         <form action="/lec_enroll" method="post">
-            <input class="login" type="text" name="lec_name" placeholder="강좌 이름">
+            <input class="login" type="text" name="lec_code" placeholder="강좌 코드">
             <center><input class="btn" type="submit" value="강좌 참여하기"></center>
         </form>
         `);
@@ -444,7 +448,7 @@ router.post("/lec_enroll", (req, res) => {
     if (req.session.t_s == "t") {
         return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
     }
-    const l_code = req.body.lec_name;
+    const l_code = req.body.lec_code;
     const a_code = req.session.a_code;
     console.log(l_code);
     db.all("SELECT s_a_code FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
@@ -484,52 +488,6 @@ router.post("/lec_enroll", (req, res) => {
     });
 });
 
-router.post("/disposable-attend", (req, res) => {
-    if (!req.session.is_logined) {
-        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
-    }
-    if (req.session.t_s == "s") {
-        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
-    }
-    const l_code = req.body.lec_name;
-    const a_code = req.session.a_code;
-    console.log(l_code);
-    db.all("SELECT s_a_code FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
-        console.log(row);
-        if (err) {
-            console.error("에러 발생:", err);
-        } else if (row.length > 0) {
-            let students = row[0].s_a_code;
-            let students_array = students.split("/");
-            console.log(students_array);
-            if (students_array.includes(a_code) === false) {
-                students_array.push(a_code);
-                students = students_array.join("/")
-
-                db.run("UPDATE lecture SET s_a_code = ? WHERE l_code = ?", [students, l_code], function (err) {
-                    if (err) {
-                        console.error("에러 발생:", err);
-                    } else {
-                        return res.send(
-                            "<script>location.href='/main';</script>",
-                        );
-                    }
-                });
-            } else {
-                return res.send(
-                    "<script>alert('이미 출석체크 되었습니다.');location.href='/main';</script>",
-                );
-            }
-        } else {
-            console.log("수강 신청 실패!");
-            return res.send(
-                "<script>alert('강좌가 존재하지 않습니다.');location.href='/lecture/enroll';</script>",
-            );
-        }
-        
-    });
-});
-
 router.get("/jongkang/:lec_code", (req, res) => {
     if (!req.session.is_logined) {
         return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
@@ -537,31 +495,41 @@ router.get("/jongkang/:lec_code", (req, res) => {
     if (req.session.t_s == "s") {
         return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
     }
+
     const l_code = req.params.lec_code;
     const a_code = req.session.a_code;
-    console.log(l_code);
-    db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
-        console.log(row);
-        if (err) {
-            console.error("에러 발생:", err);
-        } else if (row) {
-            db.run("UPDATE lecture SET end = ? WHERE l_code = ?", ["delete", l_code], function (err) {
-                if (err) {
-                    console.error("에러 발생:", err);
-                } else {
-                    console.log("수강 신청 성공!");
-                }
-            });
-            return res.send(
-                "<script>alert('종강 처리되었습니다');location.href='/main';</script>",
-            );
+
+    db.all('SELECT lec_code FROM lecture WHERE t_a_code = ?', [a_code], (err, row) => {
+        if (row) {
+            console.log(row);
+            if (row.lec_code.includes(l_code)) {
+                db.all("SELECT * FROM lecture WHERE l_code = ?", [l_code], (err, row) => {
+                    if (err) {
+                        console.error("에러 발생:", err);
+                    } else if (row) {
+                        db.run("UPDATE lecture SET end = ? WHERE l_code = ?", ["delete", l_code], function (err) {
+                            if (err) {
+                                console.error("에러 발생:", err);
+                            } else {
+                                console.log("수강 신청 성공!");
+                            }
+                        });
+                        return res.send(
+                            "<script>alert('종강 처리되었습니다');location.href='/main';</script>",
+                        );
+                    } else {
+                        return res.send(
+                            "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/lecture/enroll';</script>",
+                        );
+                    }
+                });
+            } else {
+                res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+            }
         } else {
-            console.log("수강 신청 실패!");
-            return res.send(
-                "<script>alert('강좌 코드가 존재하지 않습니다.');location.href='/lecture/enroll';</script>",
-            );
+            res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
         }
-    });
+    })
 });
 
 router.get("/disposable", (req, res) => {
@@ -618,7 +586,7 @@ router.get("/disposable", (req, res) => {
             console.log("테이블이 성공적으로 생성됨!");
         }
         db.run(
-            `INSERT INTO ${l_code} (attend) VALUES (?)`,
+            `INSERT INTO "${l_code}" (attend) VALUES (?)`,
             [""],
             (err) => {
                 if (err) {
@@ -635,6 +603,20 @@ router.get("/disposable", (req, res) => {
             },
         );
     });
+});
+
+router.get("/exitlec/:lec_code", (req, res) => {
+    if (!req.session.is_logined) {
+        return res.send("<script>alert('로그인 후 이용해주세요.');history.back();</script>");
+    }
+    if (req.session.t_s == "t") {
+        return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
+    }
+    const l_code = req.params.lec_code;
+    const a_code = req.session.a_code;
+    return res.send(
+        `<h1>fffgkrgjirjgirgjrigjrij</h1>`,
+    );
 });
 
 module.exports = router;

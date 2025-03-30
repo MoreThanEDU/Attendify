@@ -7,6 +7,7 @@ const template = require("./main_template.js");
 const otemplate = require("./template.js");
 const qrtemplate = require("./qrscan.js");
 const ltemplate = require("./lecture_template.js");
+const stemplate = require("./student_template.js");
 const lecture = require("./lecture.js");
 const bodyParser = require("body-parser");
 const path = require("path");
@@ -19,6 +20,9 @@ const redis = new Redis();
 const https = require("https");
 require("dotenv").config();
 const fs = require("fs");
+const morgan = require('morgan');
+
+const logStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
 
 function generateRandomString(length) {
     const characters =
@@ -105,6 +109,7 @@ cron.schedule("0 0 * * *", () => {
 const app = express();
 const port = 3000;
 
+app.use(morgan('combined', { stream: logStream }));
 app.use("/static", express.static(path.join(__dirname, "static")));
 app.use(
     session({
@@ -127,6 +132,7 @@ app.use(signupDelete);
 app.use(loginLogout);
 app.use(phoneauth);
 app.use(lecture);
+
 
 const options = {
     key: fs.readFileSync("server.key"),  // 개인 키
@@ -259,6 +265,7 @@ app.get("/main", (req, res) => {
                                     <div class="top">
                                         <div class="title">진행중인 강좌</div>
                                         <div class="buttons">
+                                            <button type="button" onclick="location.href='/disposable'">일회용 출석체크</button>
                                             <button type="button" onclick="location.href='/lecture/create'">강좌 생성하기</button>
                                         </div>
                                     </div>
@@ -678,152 +685,245 @@ app.get("/lecture/:l_code", (req, res) => {
             },
         );
     } else {
-        db.get(
-            `SELECT lec_name, t_a_code, at_cnt FROM lecture WHERE l_code = ?`, [lec_code], (err, lecRow) => {
+        db.get(`SELECT lec_name, t_a_code, at_cnt FROM lecture WHERE l_code = ?`, [lec_code], (err, lecRow) => {
+            if (err) {
+                console.error(err.message);
+                return res.send('<script>alert("서버 오류가 발생했습니다.");history.back();</script>');
+            }
+            if (!lecRow) {
+                return res.send('<script>alert("강좌를 찾을 수 없습니다.");history.back();</script>');
+            }
+
+            const lec_name = lecRow.lec_name;
+            const at_cnt = lecRow.at_cnt;
+            const t_a_code = lecRow.t_a_code;
+
+            // 선생 이름 조회
+            db.all(`SELECT name FROM Users WHERE a_code = ?`, [t_a_code], (err, studentRows) => {
                 if (err) {
                     console.error(err.message);
-                    return res.send('<script>alert("서버 오류가 발생했습니다.");history.back();</script>');
-                }
-                if (!lecRow) {
-                    return res.send('<script>alert("강좌를 찾을 수 없습니다.");history.back();</script>');
+                    return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                 }
 
-                const lec_name = lecRow.lec_name;
-                const at_cnt = lecRow.at_cnt;
-                const t_a_code = lecRow.t_a_code;
+                // 회차 수 조회 (테이블의 행 개수)
+                db.all(`SELECT * FROM "${lec_code}"`, (err, sessionRows) => {
+                    if (err) {
+                        console.error(err.message);
+                        return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
+                    }
 
-                // 선생 이름 조회
-                db.all(
-                    `SELECT name FROM Users WHERE a_code = ?`, [t_a_code], (err, studentRows) => {
+                    const sessionCount = sessionRows.length;
+
+                    // 회차 옵션 생성
+                    const sessionOptions = Array.from(
+                        { length: sessionCount },
+                        (_, i) => {
+                            const sessionNumber = sessionCount - i;
+                            if (sessionNumber == 1) {
+                                return `<option value="${sessionNumber}" selected>${sessionNumber}회차 수업</option>`;
+                            }
+                            else {
+                                return `<option value="${sessionNumber}">${sessionNumber}회차 수업</option>`;
+                            }
+                        },
+                    ).join("");
+
+    
+                    if (err) {
+                        console.error("DB 조회 오류:", err);
+                        return res.send('<script>alert("서버 오류입니다.");history.back();</script>');
+                    }
+                
+                    db.get(`SELECT lec_name, at_cnt FROM lecture WHERE l_code = ?`, [lec_code], (err, row) => {
                         if (err) {
-                            console.error(err.message);
-                            return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
+                            return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
                         }
-
-                        // 회차 수 조회 (테이블의 행 개수)
-                        db.all(
-                            `SELECT * FROM "${lec_code}"`, (err, sessionRows) => {
+                        const l_name = row.lec_name;
+                        const at_cnt = row.at_cnt;
+                
+                        if (at_cnt == 1) {
+                            db.all(`SELECT * FROM ${lec_code}`, (err, rows) => {
                                 if (err) {
-                                    console.error(err.message);
-                                    return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
+                                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
                                 }
-
-                                const sessionCount = sessionRows.length;
-
-                                // 회차 옵션 생성
-                                const sessionOptions = Array.from(
-                                    { length: sessionCount },
-                                    (_, i) => {
-                                        const sessionNumber = sessionCount - i;
-                                        if (sessionNumber == 1) {
-                                            return `<option value="${sessionNumber}" selected>${sessionNumber}회차 수업</option>`;
-                                        }
-                                        else {
-                                            return `<option value="${sessionNumber}">${sessionNumber}회차 수업</option>`;
-                                        }
-                                    },
-                                ).join("");
-
-                                db.get(`SELECT end FROM lecture WHERE t_a_code = ? AND l_code = ?`, [req.session.a_code, lec_code], (err, userRow) => {
+                
+                                db.get(`SELECT s_a_code FROM lecture WHERE l_code = ?`, [lec_code], (err, row) => {
                                     if (err) {
-                                        console.error("DB 조회 오류:", err);
-                                        return res.send('<script>alert("서버 오류입니다.");history.back();</script>');
+                                        return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
                                     }
-                                    if (userRow.end !== "delete") {
-                                        const thtml = ltemplate.HTML(
-                                            req.session.username,
-                                            `
-                                            <div class="container">
-                                                <div class="left-panel">
-                                                    <div class="course-title">
-                                                        <h2>${lec_name}</h2>
-                                                        <select class="dropdown" id="sessionDropdown">
-                                                            ${sessionOptions}
-                                                        </select>
-                                                    </div>
-                                                    
-                                                    <!-- 출석 리스트를 표시할 iframe -->
-                                                    <iframe id="attendanceFrame" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
-                                                </div>
-                                                
-                                                <div class="right-panel">
-                                                    <div class="buttons">
-                                                        <button onclick="exitclass();">수업에서 나가기</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <script>
-                                                const at_cnt = ${at_cnt};
-                                                const button = document.getElementById('attendify');
-                                                const qrframe = document.getElementById('qrcodeframe');
-                                                let chasu = "";
+                                    let students = row.s_a_code.split('/').filter(student => student !== "");
+                                    let studentData = {};
+                
+                                    rows.forEach(row => {
+                                        const { session } = row;
+                                        let isEmptySession = true; // 해당 세션이 비었는지 확인
+                
+                                        // 출석 상태 처리
+                                        ['attend', 'late', 'early', 'absent'].forEach(status => {
+                                            let students_status = row[status] ? row[status].split('/').filter(student => student !== "") : [];
+                                            if (students_status.length > 0) isEmptySession = false; // 하나라도 값이 있으면 false
+                
+                                            students_status.forEach(student => {
+                                                if (!studentData[student]) {
+                                                    studentData[student] = {};
+                                                }
+                                                if (!studentData[student][session]) {
+                                                    studentData[student][session] = [];
+                                                }
+                                                if (!studentData[student][session].includes(status)) {
+                                                    studentData[student][session].push(status);
+                                                }
+                                            });
+                                        });
+                
+                                        // 만약 해당 세션의 모든 출석 데이터가 비어있다면 "미출석"으로 설정
+                                        students.forEach(student => {
+                                            if (!studentData[student]) {
+                                                studentData[student] = {}; // 학생 데이터 초기화
+                                            }
+                                            if (!studentData[student][session] || studentData[student][session].length === 0) {
+                                                studentData[student][session] = "미출석";
+                                            } else {
+                                                let statusString = studentData[student][session].toString();
+                                                if (statusString === "attend") studentData[student][session] = "출석";
+                                                else if (statusString === "early") studentData[student][session] = "조퇴";
+                                                else if (statusString === "late") studentData[student][session] = "지각";
+                                                else if (statusString === "absent") studentData[student][session] = "결석";
+                                            }
+                                        });
+                                    });
+                
+                                    function processData(Data, callback) {
+                                        let completedQueries = 0;
+                                        let dataKeys = Object.keys(Data);
+                
+                                        if (dataKeys.length === 0) {
+                                            return callback(Data);
+                                        }
 
-                                                function isMobile() {
-                                                    return /iPhone|iPad|iPod|Android|BlackBerry|Windows Phone/i.test(navigator.userAgent);
+                                        dataKeys.forEach(datum => {
+                                            db.get(`SELECT name, id FROM Users WHERE a_code = ?`, [datum], (err, rows2) => {
+                                                if (err) {
+                                                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
                                                 }
 
-                                                if (isMobile()) {
-                                                    document.getElementsByClassName('left-panel')[0].style.width = "100%";
-                                                    document.getElementsByClassName('right-panel')[0].style.display = "none";
-                                                    document.getElementById('attendanceFrame').style.width = "100%";
-                                                    document.getElementsByClassName('buttons')[0].style.display = "none";
-                                                    qrframe.style.display = "none";
+                                                if(datum != req.session.a_code) {
+                                                    delete Data[datum]
                                                 }
 
-                                                const iframe = document.getElementById('attendanceFrame');
-                                                iframe.src = "/attendancelist/${lec_code}/1";
-                                            </script>
-                                            `,
-                                        );
-                                        res.send(thtml);
-                                    } else {
-                                        const thtml = ltemplate.HTML(
-                                            req.session.username,
-                                            `
-                                            <div class="container">
-                                                <div class="left-panel">
-                                                    <div class="course-title">
-                                                        <h2>${lec_name}</h2>
-                                                        <select class="dropdown" id="sessionDropdown">
-                                                            ${sessionOptions}
-                                                        </select>
-                                                    </div>
-                                                    
-                                                    <!-- 출석 리스트를 표시할 iframe -->
-                                                    <iframe id="attendanceFrame" width="100%" height="550" style="overflow-x: hidden; border: none;"></iframe>
-                                                </div>
-                                                
-                                                <div class="right-panel">
-                                                    <div class="buttons">
-                                                        <button onclick="exitclass();">수업에서 나가기</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <script>
-                                                const at_cnt = ${at_cnt};
-
-                                                function isMobile() {
-                                                    return /iPhone|iPad|iPod|Android|BlackBerry|Windows Phone/i.test(navigator.userAgent);
+                                                let datum_nameid = `${rows2.name}(${rows2.id})`;
+                                                Data[datum_nameid] = Data[datum];
+                                                delete Data[datum];
+                
+                                                completedQueries++;
+                
+                                                if (completedQueries === dataKeys.length) {
+                                                    callback(Data);
                                                 }
-
-                                                if (isMobile()) {
-                                                    qrframe.style.display = "none";
-                                                }
-            
-                                                const iframe = document.getElementById('attendanceFrame');
-                                                iframe.src = "/attendancelist/${lec_code}/1";
-                                            </script>
-                                            `,
-                                        );
-                                        res.send(thtml);
+                                            });
+                                        });
                                     }
+                                    processData(studentData, function(studentData_final) {
+                                        var html = stemplate.HTML(req.session.username, l_name, lec_code, studentData_final);
+                                        return res.send(html);
+                                    });
                                 });
-                            },
-                        );
-                    },
-                );
-            },
-        );
+                            });
+                        }
+                
+                        if (at_cnt == 2) {
+                            db.all(`SELECT * FROM ${lec_code}`, (err, rows) => {
+                                if (err) {
+                                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                                }
+                
+                                db.get(`SELECT s_a_code FROM lecture WHERE l_code = ?`, [lec_code], (err, row) => {
+                                    if (err) {
+                                        return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                                    }
+                                    let students = row.s_a_code.split('/').filter(student => student !== "");
+                                    let studentData = {};
+                
+                                    rows.forEach(row => {
+                                        const { session } = row;
+                                        let isEmptySession = true; // 해당 세션이 비었는지 확인
+                
+                                        // 출석 상태 처리
+                                        ['o_1', 'x_1', 'o_2', 'x_2'].forEach(status => {
+                                            let students_status = row[status] ? row[status].split('/').filter(student => student !== "") : [];
+                                            if (students_status.length > 0) isEmptySession = false; // 하나라도 값이 있으면 false
+                
+                                            students_status.forEach(student => {
+                                                if (!studentData[student]) {
+                                                    studentData[student] = {};
+                                                }
+                                                if (!studentData[student][session]) {
+                                                    studentData[student][session] = [];
+                                                }
+                                                if (!studentData[student][session].includes(status)) {
+                                                    studentData[student][session].push(status);
+                                                }
+                                            });
+                                        });
+                
+                                        // 만약 해당 세션의 모든 출석 데이터가 비어있다면 "미출석"으로 설정
+                                        students.forEach(student => {
+                                            if (!studentData[student]) {
+                                                studentData[student] = {}; // 학생 데이터 초기화
+                                            }
+                                            if (!studentData[student][session] || studentData[student][session].length === 0) {
+                                                studentData[student][session] = "미출석";
+                                            } else {
+                                                let statusString = studentData[student][session].toString();
+                                                if (statusString === "o_1,o_2") studentData[student][session] = "출석";
+                                                else if (statusString === "o_1,x_2") studentData[student][session] = "조퇴";
+                                                else if (statusString === "x_1,o_2") studentData[student][session] = "지각";
+                                                else if (statusString === "x_1,x_2") studentData[student][session] = "결석";
+                                            }
+                                        });
+                                    });
+                
+                                    function processData(Data, callback) {
+                                        let completedQueries = 0;
+                                        let dataKeys = Object.keys(Data);
+                
+                                        if (dataKeys.length === 0) {
+                                            return callback(Data);
+                                        }
+
+                                        dataKeys.forEach(datum => {
+                                            db.get(`SELECT name, id FROM Users WHERE a_code = ?`, [datum], (err, rows2) => {
+                                                if (err) {
+                                                    return res.send("<script>alert('서버 오류입니다.');location.href='/main'</script>");
+                                                }
+
+                                                if(datum != req.session.a_code) {
+                                                    delete Data[datum]
+                                                }
+                                                
+                                                let datum_nameid = `${rows2.name}(${rows2.id})`;
+                                                Data[datum_nameid] = Data[datum];
+                                                delete Data[datum];
+                
+                                                completedQueries++;
+                
+                                                if (completedQueries === dataKeys.length) {
+                                                    callback(Data);
+                                                }
+                                            });
+                                        });
+                                    }
+                                    processData(studentData, function(studentData_final) {
+                                        var html = stemplate.HTML(req.session.username, l_name, lec_code, studentData_final);
+                                        return res.send(html);
+                                    });
+                                });
+                            });
+                        }
+                    });
+                });
+            });
+        });
     }
 });
 
@@ -878,7 +978,7 @@ app.get("/showtext/:text", (req, res) => {
         return res.send("<script>alert('잘못된 접근입니다.');history.back();</script>");
     }
     const text = req.params.text;
-    res.send(`<center><h1 style="font-size: 30pt;margin-top: 100px;">${text}</h1></center>`);
+    res.send(`<style>* {font-family: Pretendard-Regular;}@font-face {font-family: 'Pretendard-Regular';src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');font-weight: 400;font-style: normal;}</style><center><h1 style="font-size: 30pt;margin-top: 100px;">${text}</h1></center>`);
 });
 
 app.get("/lecture/finish/:l_code/:session/:cha", async (req, res) => {
@@ -954,7 +1054,7 @@ app.get("/lecture/finish/:l_code/:session/:cha", async (req, res) => {
                         studentlist = sessionData.s_a_code.split("/").filter(item => item.trim() !== "");
                 });
                 db.get(
-                    `SELECT attend, late, absent FROM "${l_code}" WHERE session = ?`,
+                    `SELECT attend, late, early, absent FROM "${l_code}" WHERE session = ?`,
                     [session],
                     (err, sessionData) => {
                         if (err) {
@@ -1063,7 +1163,7 @@ app.post("/attend", async (req, res) => {
             }
             if (at_cnt == 1) {
                 db.get(
-                    `SELECT attend, late, absent FROM "${l_code}" WHERE session = ?`,
+                    `SELECT attend, late, early, absent FROM "${l_code}" WHERE session = ?`,
                     [session],
                     (err, sessionData) => {
                         if (err) {
@@ -1079,20 +1179,22 @@ app.post("/attend", async (req, res) => {
                         // 각 출석 상태를 '/'로 나누어 배열로 저장
                         let attend = sessionData.attend.split("/").filter(item => item.trim() !== "");
                         let late = sessionData.late.split("/").filter(item => item.trim() !== "");
+                        let early = sessionData.early.split("/").filter(item => item.trim() !== "");
                         let absent = sessionData.absent.split("/").filter(item => item.trim() !== "");
                         
-                        if (attend.includes(a_code)||late.includes(a_code)||absent.includes(a_code)) {
+                        if (attend.includes(a_code)||late.includes(a_code)||absent.includes(a_code)||early.includes(a_code)) {
                             return res.send("<script>alert('이미 출석한 사용자입니다.');history.back();</script>");
                         }
                         attend.push(a_code);
             
                         let attendupdate = attend.join("/");
                         let lateupdate = late.join("/");
+                        let earlyupdate = early.join("/");
                         let absentupdate = absent.join("/");
                         // 출석 상태를 DB에 업데이트
                         db.run(
-                            `UPDATE "${l_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                            [attendupdate, lateupdate, absentupdate, session],
+                            `UPDATE "${l_code}" SET attend = ?, late = ?, early = ?, absent = ? WHERE session = ?`,
+                            [attendupdate, lateupdate, earlyupdate, absentupdate, session],
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
@@ -1210,6 +1312,7 @@ app.get("/attendancelist/sse/:l_code/:session", (req, res) => {
                             const response = {
                                 attend: sessionData.attend.split("/"),
                                 late: sessionData.late.split("/"),
+                                early: sessionData.early.split("/"),
                                 absent: sessionData.absent.split("/"),
                             };
             
@@ -1331,6 +1434,16 @@ app.get("/disposableatd/:l_code/", (req, res) => {
                     <meta charset="UTF-8">
                     <title>일회용 출석 관리</title>
                     <style>
+                        * {
+                            font-family: Pretendard-Regular;
+                        }
+                            
+                        @font-face {
+                            font-family: 'Pretendard-Regular';
+                            src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                            font-weight: 400;
+                            font-style: normal;
+                        }
                         body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
                         .container { width: 95%; padding: 10px; }
                         .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
@@ -1422,6 +1535,16 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                 <meta charset="UTF-8">
                                 <title>${lec_name} 출석 관리</title>
                                 <style>
+                                    * {
+                                        font-family: Pretendard-Regular;
+                                    }
+                                        
+                                    @font-face {
+                                        font-family: 'Pretendard-Regular';
+                                        src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                                        font-weight: 400;
+                                        font-style: normal;
+                                    }
                                     body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
                                     .container { width: 95%; padding: 10px; }
                                     .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
@@ -1505,6 +1628,16 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                 <meta charset="UTF-8">
                                 <title>${lec_name} 출석 관리</title>
                                 <style>
+                                    * {
+                                        font-family: Pretendard-Regular;
+                                    }
+                                        
+                                    @font-face {
+                                        font-family: 'Pretendard-Regular';
+                                        src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                                        font-weight: 400;
+                                        font-style: normal;
+                                    }
                                     body { font-family: Arial, sans-serif; background-color: #f9f9f9; }
                                     .container { width: 95%; padding: 10px; }
                                     .attendance-header { font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 10px; }
@@ -1544,6 +1677,7 @@ app.get("/attendancelist/:l_code/:session", (req, res) => {
                                             if (data.attend.includes(a_code)) present = "출석";
                                             else if (data.late.includes(a_code)) present = "지각";
                                             else if (data.absent.includes(a_code)) present = "결석";
+                                            else if (data.early.includes(a_code)) present = "조퇴";
 
                                             document.getElementById("status-" + a_code).innerText = present;
                                         });
@@ -1659,7 +1793,7 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
             }
             if (at_cnt == 1) {
                 db.get(
-                    `SELECT attend, late, absent FROM "${lec_code}" WHERE session = ?`,
+                    `SELECT attend, late, early, absent FROM "${lec_code}" WHERE session = ?`,
                     [session_code],
                     (err, sessionData) => {
                         if (err) {
@@ -1675,6 +1809,7 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                         // 각 출석 상태를 '/'로 나누어 배열로 저장
                         let attend = sessionData.attend.split("/").filter(item => item.trim() !== "");
                         let late = sessionData.late.split("/").filter(item => item.trim() !== "");
+                        let early = sessionData.early.split("/").filter(item => item.trim() !== "");
                         let absent = sessionData.absent.split("/").filter(item => item.trim() !== "");
             
                         if (attend.includes(a_code)) {
@@ -1682,6 +1817,9 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
                             late.push(a_code);
                         } else if (late.includes(a_code)) {
                             late = late.filter(item => item !== a_code);
+                            early.push(a_code); 
+                        } else if (early.includes(a_code)) {
+                            early = early.filter(item => item !== a_code);
                             absent.push(a_code); 
                         } else if (absent.includes(a_code)) {
                             absent = absent.filter(item => item !== a_code);
@@ -1692,11 +1830,12 @@ app.get("/changestatus/:lec_code/:session/:a_code", (req, res) => {
             
                         let attendupdate = attend.join("/");
                         let lateupdate = late.join("/");
+                        let earlyupdate = early.join("/");
                         let absentupdate = absent.join("/");
                         // 출석 상태를 DB에 업데이트
                         db.run(
-                            `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                            [attendupdate, lateupdate, absentupdate, session_code],
+                            `UPDATE "${lec_code}" SET attend = ?, late = ?, early = ?, absent = ? WHERE session = ?`,
+                            [attendupdate, lateupdate, earlyupdate, absentupdate, session_code],
                             (err) => {
                                 if (err) {
                                     console.error("업데이트 오류: ", err.message);
@@ -1752,8 +1891,8 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
                     return res.status(500).send("<script>alert('서버 오류가 발생했습니다.');history.back();</script>");
                 }
                 db.run(
-                    `UPDATE "${lec_code}" SET attend = ?, late = ?, absent = ? WHERE session = ?`,
-                    ["/", "/", "/", session_code],
+                    `UPDATE "${lec_code}" SET attend = ?, late = ?, early = ?, absent = ? WHERE session = ?`,
+                    ["/", "/", "/", "/", session_code],
                     (err) => {
                         if (err) {
                             console.error("업데이트 오류: ", err.message);

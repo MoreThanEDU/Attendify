@@ -5,7 +5,7 @@ module.exports = {
             <html lang="ko">
             <head>
                 <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta name="viewport" content="width=device-width, initial-scale=0.9, user-scalable=no">
                 <title>Attendify</title>
                 <style>
                     body {
@@ -13,6 +13,16 @@ module.exports = {
                         margin: 0;
                         padding: 0;
                         background-color: #f9f9f9;
+                    }
+                    * {
+                        font-family: Pretendard-Regular;
+                    }
+                        
+                    @font-face {
+                        font-family: 'Pretendard-Regular';
+                        src: url('https://fastly.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+                        font-weight: 400;
+                        font-style: normal;
                     }
             
                     .header {
@@ -92,7 +102,8 @@ module.exports = {
                     }
 
                     .buttons {
-                        float: right
+                        float: right;
+                        color: white;
                     }
 
                     .buttons button {
@@ -155,12 +166,20 @@ module.exports = {
                     <div class="admin">
                         ${username}님
                         <div class="dropdown-menu">
+                            <a href="/account/find">비밀번호 변경</a>
                             <a href="/account/delete">계정 삭제</a>
                             <a href="/account/logout">로그아웃</a>
                         </div>
                     </div>
                 </div>
                 ${body}
+                <script>
+                (function(){var w=window;if(w.ChannelIO){return w.console.error("ChannelIO script included twice.");}var ch=function(){ch.c(arguments);};ch.q=[];ch.c=function(args){ch.q.push(args);};w.ChannelIO=ch;function l(){if(w.ChannelIOInitialized){return;}w.ChannelIOInitialized=true;var s=document.createElement("script");s.type="text/javascript";s.async=true;s.src="https://cdn.channel.io/plugin/ch-plugin-web.js";var x=document.getElementsByTagName("script")[0];if(x.parentNode){x.parentNode.insertBefore(s,x);}}if(document.readyState==="complete"){l();}else{w.addEventListener("DOMContentLoaded",l);w.addEventListener("load",l);}})();
+
+                ChannelIO('boot', {
+                    "pluginKey": "2e35704a-6847-4a3a-842a-c80c5c2569e5"
+                });
+                </script>
             </body>
             </html>
             
