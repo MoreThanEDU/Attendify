@@ -1907,6 +1907,6 @@ app.get("/nostatus/:lec_code/:session/", (req, res) => {
         return res.send("<script>history.back();</script>");
 });
 
-https.createServer(options, app).listen(3000, () => {
+https.createServer(options, app).listen(80, () => {
     console.log("실행 중!");
 });
